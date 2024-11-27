@@ -1,0 +1,62 @@
+[
+  {
+    "title": "우주 탐사의 미래",
+    "image": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1600&q=80",
+    "description": "인류의 우주 탐사 역사와 미래 계획에 대한 논의 공간",
+    "tags": ["우주", "과학", "탐사", "기술"]
+  },
+  {
+    "title": "세계 요리 여행", 
+    "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1600&q=80",
+    "description": "다양한 나라의 요리와 식문화를 공유하는 공간",
+    "tags": ["요리", "여행", "문화", "음식"]
+  },
+  {
+    "title": "AI와 윤리",
+    "image": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1600&q=80", 
+    "description": "인공지능 발전에 따른 윤리적 문제와 해결 방안 토론",
+    "tags": ["AI", "윤리", "기술", "철학"]
+  },
+  {
+    "title": "지속 가능한 도시 설계",
+    "image": "https://images.unsplash.com/photo-1518005020951-eccb494ad742?w=1600&q=80",
+    "description": "환경 친화적이고 지속 가능한 도시 설계 아이디어 공유",
+    "tags": ["도시계획", "환경", "지속가능성", "건축"]
+  },
+  {
+    "title": "현대 미술의 흐름",
+    "image": "https://images.unsplash.com/photo-1561214115-f2f134cc4912?w=1600&q=80",
+    "description": "현대 미술의 다양한 장르와 작가들의 작품 분석",
+    "tags": ["미술", "현대미술", "아트", "문화"]
+  },
+  {
+    "title": "디지털 노마드 라이프",
+    "image": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1600&q=80",
+    "description": "장소에 구애받지 않고 일하는 디지털 노마드들의 경험 공유",
+    "tags": ["디지털노마드", "원격근무", "여행", "라이프스타일"]
+  },
+  {
+    "title": "미래 교육의 혁신",
+    "image": "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1600&q=80",
+    "description": "테크놀로지를 활용한 새로운 교육 방식과 미래 학습 환경 탐구",
+    "tags": ["교육", "테크놀로지", "혁신", "미래"]
+  },
+  {
+    "title": "심리학과 일상",
+    "image": "https://images.unsplash.com/photo-1493612276216-ee3925520721?w=1600&q=80",
+    "description": "일상 생활에서 적용할 수 있는 심리학 이론과 실천 방법",
+    "tags": ["심리학", "멘탈헬스", "자기계발", "관계"]
+  },
+  {
+    "title": "블록체인과 암호화폐",
+    "image": "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=1600&q=80",
+    "description": "블록체인 기술의 발전과 암호화폐 시장 동향 분석",
+    "tags": ["블록체인", "암호화폐", "핀테크", "투자"]
+  },
+  {
+    "title": "지구 생태계 보존",
+    "image": "https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?w=1600&q=80",
+    "description": "멸종 위기 동식물 보호와 생태계 다양성 유지를 위한 노력",
+    "tags": ["생태계", "환경보호", "멸종위기종", "생물다양성"]
+  }
+]
