@@ -74,13 +74,6 @@ const blockSchema = z.object({
   content: z.string().optional(),
 });
 
-const metadataSchema = z.object({
-  id: z.string(),
-  author: z.string(),
-  createdAt: z.string(),
-  modifiedAt: z.string(),
-});
-
 const momentSchema = z.object({
   title: z
     .string()
@@ -98,7 +91,12 @@ const momentSchema = z.object({
 
 type Block = z.infer<typeof blockSchema>;
 type BlockVersion = z.infer<typeof blockVersionSchema>;
-type Metadata = z.infer<typeof metadataSchema>;
+type Metadata = {
+  id: string;
+  author: string;
+  createdAt: string;
+  modifiedAt: string;
+}
 
 interface MomentEditPageProps {
   params: Promise<{ id: string }>;
