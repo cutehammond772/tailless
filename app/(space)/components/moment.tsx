@@ -1,5 +1,6 @@
 import { HttpStatus } from "@/actions/response";
 import { getMoment } from "@/actions/moment/primitives";
+import { formatDate } from "@/lib/utils";
 
 export async function Moment({ id }: { id: string }) {
   const moment = await getMoment({ id });
@@ -13,9 +14,7 @@ export async function Moment({ id }: { id: string }) {
       <div className="flex flex-col gap-2">
         <h3 className="text-xl font-bold">{moment.data.title}</h3>
         <p className="text-sm text-gray-500">{moment.data.author}</p>
-        <p className="text-sm text-gray-500">
-          {moment.data.createdAt.toLocaleString("ko-KR")}
-        </p>
+        <p className="text-sm text-gray-500">{formatDate(moment.data.createdAt)}</p>
       </div>
       <p className="text-pretty break-keep leading-relaxed line-clamp-3">
         {moment.data.content}
