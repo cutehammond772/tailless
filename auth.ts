@@ -10,7 +10,7 @@ export const { handlers, auth, signIn, signOut, unstable_update: update } = Next
     credential: cert({
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
       clientEmail: process.env.FIREBASE_AUTH_CLIENT_EMAIL!,
-      privateKey: process.env.FIREBASE_AUTH_PRIVATE_KEY!,
+      privateKey: process.env.FIREBASE_AUTH_PRIVATE_KEY!.replace(/\\n/gm, "\n"),
     }),
   }),
 });
