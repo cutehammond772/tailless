@@ -5,8 +5,8 @@ import { MoreHorizontal, Heart, Share2 } from "lucide-react";
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
-import { authorizeUser } from "@/actions/auth";
 import { getUser } from "@/actions/user";
 import { deleteMoment } from "@/actions/moment/primitives";
 import { Button } from "@/components/ui/button";
@@ -38,23 +38,16 @@ interface MomentCardProps {
 
 export default function MomentCard({ moment, children }: MomentCardProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [isLikedByUser, setIsLikedByUser] = useState(false);
   const [author, setAuthor] = useState<User | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      const [authorResponse, userResponse] = await Promise.all([
-        getUser(moment.author),
-        authorizeUser()
-      ]);
-
+      const authorResponse = await getUser(moment.author);
       if (authorResponse.status === 200) {
         setAuthor(authorResponse.data);
-      }
-      if (userResponse.status === 200) {
-        setCurrentUser(userResponse.data);
       }
     };
 
@@ -62,6 +55,7 @@ export default function MomentCard({ moment, children }: MomentCardProps) {
   }, [moment.author]);
 
   const handleEdit = () => router.push(`/moment/${moment.id}/edit`);
+  const handleAuthorClick = () => router.push(`/user/${author?.id}`);
 
   const handleDelete = async () => {
     const response = await deleteMoment({ id: moment.id });
@@ -72,7 +66,7 @@ export default function MomentCard({ moment, children }: MomentCardProps) {
     }
   };
 
-  const isAuthor = currentUser?.id === moment.author;
+  const isAuthor = session?.user?.id === moment.author;
   const formattedTime = formatDate(moment.createdAt);
 
   return (
@@ -84,7 +78,11 @@ export default function MomentCard({ moment, children }: MomentCardProps) {
     >
       {/* 헤더 영역 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          className="flex items-center gap-3 p-0 h-auto hover:bg-transparent"
+          onClick={handleAuthorClick}
+        >
           {author && (
             <Image
               src={author.image || "/default-profile.png"}
@@ -94,11 +92,11 @@ export default function MomentCard({ moment, children }: MomentCardProps) {
               className="rounded-full"
             />
           )}
-          <div>
+          <div className="text-left">
             <h3 className="font-semibold">{author?.name || "알 수 없음"}</h3>
             <p className="text-sm text-gray-500">{formattedTime}</p>
           </div>
-        </div>
+        </Button>
 
         {isAuthor && (
           <DropdownMenu>

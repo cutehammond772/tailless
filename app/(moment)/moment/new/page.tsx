@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { z } from "zod";
 import { useSession } from "next-auth/react";
+import { Check } from "lucide-react";
 
 import { HttpStatus } from "@/actions/response";
 import { createMoment } from "@/actions/moment/primitives";
@@ -25,14 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Space } from "@/db/space";
-import { Check } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 // Validation Schemas
@@ -41,12 +35,8 @@ const momentSchema = z.object({
     .string()
     .min(2, "제목은 2자 이상이어야 합니다")
     .max(100, "제목은 100자 이하여야 합니다"),
-  content: z
-    .string()
-    .min(10, "내용은 10자 이상이어야 합니다"),
-  spaces: z
-    .array(z.string())
-    .min(1, "최소 1개의 Space를 선택해야 합니다"),
+  content: z.string().min(10, "내용은 10자 이상이어야 합니다"),
+  spaces: z.array(z.string()).min(1, "최소 1개의 Space를 선택해야 합니다"),
 });
 
 // Error Alert Component
@@ -64,36 +54,12 @@ const ErrorAlert = ({ message }: { message: string }) => (
   </div>
 );
 
-// Preview Component
-const MomentPreview = ({ title, content, userName }: { 
-  title: string;
-  content: string;
-  userName: string;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.2 }}
-    className="bg-white/30 backdrop-blur-lg rounded-xl p-6 shadow-lg border border-white/20"
-  >
-    <h1 className="text-2xl font-bold mb-4">{title || "제목을 입력해주세요"}</h1>
-    <div className="prose prose-sm">
-      <p className="text-gray-600 whitespace-pre-wrap">
-        {content || "내용을 입력해주세요"}
-      </p>
-    </div>
-    <div className="mt-6 pt-4 border-t border-gray-200/20">
-      <p className="text-sm text-gray-500">작성자: {userName}</p>
-    </div>
-  </motion.div>
-);
-
 // Space Selector Component
 const SpaceSelector = ({
   availableSpaces,
   selectedSpaces,
   setSelectedSpaces,
-  errors
+  errors,
 }: {
   availableSpaces: Space[];
   selectedSpaces: Space[];
@@ -104,18 +70,18 @@ const SpaceSelector = ({
 
   const handleSpaceSelect = (space: Space) => {
     setSelectedSpaces(
-      selectedSpaces.some(s => s.id === space.id)
-        ? selectedSpaces.filter(s => s.id !== space.id)
+      selectedSpaces.some((s) => s.id === space.id)
+        ? selectedSpaces.filter((s) => s.id !== space.id)
         : [...selectedSpaces, space]
     );
   };
 
   const handleSpaceRemove = (spaceId: string) => {
-    setSelectedSpaces(selectedSpaces.filter(s => s.id !== spaceId));
+    setSelectedSpaces(selectedSpaces.filter((s) => s.id !== spaceId));
   };
 
   const isSpaceSelected = (spaceId: string) => {
-    return selectedSpaces.some(s => s.id === spaceId);
+    return selectedSpaces.some((s) => s.id === spaceId);
   };
 
   return (
@@ -166,7 +132,9 @@ const SpaceSelector = ({
                       className="mr-3 h-5 w-5"
                     />
                     <div className="flex-1">
-                      <p className="font-medium text-sm md:text-base">{space.title}</p>
+                      <p className="font-medium text-sm md:text-base">
+                        {space.title}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -175,9 +143,7 @@ const SpaceSelector = ({
           </div>
         </PopoverContent>
       </Popover>
-      {errors.spaces && (
-        <p className="text-sm text-red-500">{errors.spaces}</p>
-      )}
+      {errors.spaces && <p className="text-sm text-red-500">{errors.spaces}</p>}
       {selectedSpaces.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-3">
           {selectedSpaces.map((space) => (
@@ -212,18 +178,18 @@ const useLoadSpaces = (userId: string | undefined) => {
       if (!userId) {
         return;
       }
-      
+
       try {
         const response = await getSpaces({ contributors: [userId] });
         if (response.status === HttpStatus.OK) {
           setAvailableSpaces(response.data ?? []);
         }
       } catch (error) {
-        console.error('Space 로딩 중 오류 발생:', error);
+        console.error("Space 로딩 중 오류 발생:", error);
         setAvailableSpaces([]);
       }
     };
-    
+
     loadSpaces();
   }, [userId]);
 
@@ -238,9 +204,7 @@ export default function NewMomentPage() {
   const [selectedSpaces, setSelectedSpaces] = useState<Space[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("edit");
-  const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [aiTarget, setAiTarget] = useState<AiAction>("title_recommendation");
 
   const availableSpaces = useLoadSpaces(session?.user?.id);
 
@@ -252,23 +216,25 @@ export default function NewMomentPage() {
     return <ErrorAlert message="로그인이 필요한 서비스입니다." />;
   }
 
-  const handleAiGenerate = async () => {
+  const handleAiGenerate = async (target: AiAction) => {
     setIsGenerating(true);
     try {
-      const response = await generateAiText(aiTarget === "title_recommendation" ? title : content, aiTarget);
-      
+      const response = await generateAiText(
+        target === "title_recommendation" ? title : content,
+        target
+      );
+
       if (response) {
-        if (aiTarget === "title_recommendation") {
+        if (target === "title_recommendation") {
           setTitle(response);
         } else {
           setContent(response);
         }
       }
     } catch (error) {
-      console.error('AI 텍스트 생성 중 오류 발생:', error);
+      console.error("AI 텍스트 생성 중 오류 발생:", error);
     } finally {
       setIsGenerating(false);
-      setIsAiDialogOpen(false);
     }
   };
 
@@ -279,7 +245,7 @@ export default function NewMomentPage() {
       const validatedData = momentSchema.parse({
         title,
         content,
-        spaces: selectedSpaces.map(space => space.id),
+        spaces: selectedSpaces.map((space) => space.id),
       });
 
       // 1. Moment 생성
@@ -294,7 +260,7 @@ export default function NewMomentPage() {
       if (momentResponse.status === HttpStatus.OK) {
         // 2. 선택된 Space들에 Moment 추가
         await Promise.all(
-          validatedData.spaces.map(spaceId =>
+          validatedData.spaces.map((spaceId) =>
             addMomentToSpace(spaceId, momentResponse.data.id)
           )
         );
@@ -336,9 +302,17 @@ export default function NewMomentPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-2 rounded-full p-1.5 mx-2 md:mx-0 bg-white/10 backdrop-blur-sm shadow-inner">
             {[
-              { value: "edit", icon: <PenTool className="w-4 h-4" />, label: "편집" },
-              { value: "preview", icon: <Eye className="w-4 h-4" />, label: "미리보기" }
-            ].map(tab => (
+              {
+                value: "edit",
+                icon: <PenTool className="w-4 h-4" />,
+                label: "편집",
+              },
+              {
+                value: "preview",
+                icon: <Eye className="w-4 h-4" />,
+                label: "미리보기",
+              },
+            ].map((tab) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
@@ -352,7 +326,9 @@ export default function NewMomentPage() {
                 )}
               >
                 {tab.icon}
-                <span className="text-xs md:text-sm font-medium">{tab.label}</span>
+                <span className="text-xs md:text-sm font-medium">
+                  {tab.label}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -389,16 +365,14 @@ export default function NewMomentPage() {
                     <label className="text-sm font-medium">제목</label>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="gap-1 text-xs"
-                      onClick={() => {
-                        setAiTarget("title_recommendation");
-                        setIsAiDialogOpen(true);
-                      }}
+                      className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
+                      onClick={() => handleAiGenerate("title_recommendation")}
+                      disabled={isGenerating}
                     >
-                      <Sparkle className="w-3 h-3" />
-                      AI
+                      <Sparkle className="w-3.5 h-3.5" />
+                      {isGenerating ? "다듬는 중..." : "다듬기"}
                     </Button>
                   </div>
                   <Input
@@ -423,16 +397,14 @@ export default function NewMomentPage() {
                     <label className="text-sm font-medium">내용</label>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      className="gap-1 text-xs"
-                      onClick={() => {
-                        setAiTarget("content_recommendation");
-                        setIsAiDialogOpen(true);
-                      }}
+                      className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
+                      onClick={() => handleAiGenerate("content_recommendation")}
+                      disabled={isGenerating}
                     >
-                      <Sparkle className="w-3 h-3" />
-                      AI
+                      <Sparkle className="w-3.5 h-3.5" />
+                      {isGenerating ? "다듬는 중..." : "다듬기"}
                     </Button>
                   </div>
                   <Textarea
@@ -469,44 +441,24 @@ export default function NewMomentPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <MomentPreview
-                title={title}
-                content={content}
-                userName={session.user.name ?? ""}
-              />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white/30 backdrop-blur-lg rounded-xl p-6 shadow-lg border border-white/20"
+              >
+                <h1 className="text-2xl font-bold mb-4">
+                  {title || "제목을 입력해주세요"}
+                </h1>
+                <div className="prose prose-sm">
+                  <p className="text-gray-600 whitespace-pre-wrap">
+                    {content || "내용을 입력해주세요"}
+                  </p>
+                </div>
+              </motion.div>
             </motion.div>
           </TabsContent>
         </Tabs>
-
-        <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>AI 추천</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-gray-500">
-                {aiTarget === "title_recommendation" 
-                  ? "내용을 기반으로 제목을 추천해드립니다."
-                  : "제목을 기반으로 내용을 추천해드립니다."}
-              </p>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAiDialogOpen(false)}
-                >
-                  취소
-                </Button>
-                <Button
-                  onClick={handleAiGenerate}
-                  disabled={isGenerating}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                >
-                  {isGenerating ? "생성 중..." : "생성하기"}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </motion.div>
     </div>
   );
