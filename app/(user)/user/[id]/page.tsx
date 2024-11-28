@@ -1,3 +1,4 @@
+import { z } from "zod";
 import Image from "next/image";
 import * as motion from "framer-motion/client";
 import { authorizeUser, logout } from "@/actions/auth";
@@ -18,10 +19,13 @@ import {
 } from "@/components/ui/select";
 import { CreateSpace } from "@/db/space";
 import { CreateMoment } from "@/db/moment";
-import { z } from "zod";
 import { cn } from "@/lib/utils";
-import MomentTimeline from "@/app/(main)/components/moment-timeline";
 import { getUser } from "@/actions/user";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Hexagon, Loader, User } from "lucide-react";
+import SpaceCard from "@/features/space/space-card";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export interface UserPageProps {
   params: Promise<{
@@ -87,196 +91,225 @@ export default async function UserPage({ params }: UserPageProps) {
         </div>
       </motion.div>
 
-      {isOwner ? (
-        <motion.div 
-          className={cn(
+      {/* 탭 섹션 */}
+      <Tabs defaultValue="spaces" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 gap-4">
+          <TabsTrigger value="spaces" className="gap-2">
+            <Hexagon className="w-4 h-4" />
+            Spaces
+          </TabsTrigger>
+          <TabsTrigger value="moments" className="gap-2">
+            <Loader className="w-4 h-4" />
+            Moments
+          </TabsTrigger>
+          {isOwner && (
+            <TabsTrigger value="settings" className="gap-2">
+              <User className="w-4 h-4" />
+              설정
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* Spaces 탭 */}
+        <TabsContent value="spaces" className={cn(
+          "backdrop-blur-lg bg-white/30",
+          "border border-white/20",
+          "rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]",
+          "p-8"
+        )}>
+          <h2 className="text-xl font-bold mb-6">기여 중인 Spaces</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {spaces.data.map((space) => (
+              <SpaceCard key={space.id} space={space} />
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Moments 탭 */}
+        <TabsContent value="moments" className={cn(
+          "backdrop-blur-lg bg-white/30",
+          "border border-white/20",
+          "rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]",
+          "p-8"
+        )}>
+          <h2 className="text-xl font-bold mb-6">작성한 Moments</h2>
+          <div className="space-y-6">
+            {moments.data.map((moment) => (
+              <motion.article
+                key={moment.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white/50 rounded-xl p-6 space-y-4"
+              >
+                <h3 className="text-xl font-bold">{moment.title}</h3>
+                <p className="text-gray-600 line-clamp-3">{moment.content}</p>
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <span>{new Date(moment.createdAt).toLocaleDateString()}</span>
+                  <Link 
+                    href={`/moment/${moment.id}`}
+                    className="flex items-center gap-2 hover:text-gray-900 transition-colors"
+                  >
+                    자세히 보기
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* 설정 탭 (소유자만 볼 수 있음) */}
+        {isOwner && (
+          <TabsContent value="settings" className={cn(
             "backdrop-blur-lg bg-white/30",
             "border border-white/20",
             "rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]",
             "p-8 space-y-8"
-          )}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          {/* 로그아웃 버튼 */}
-          <form
-            action={async () => {
-              "use server";
-              await logout({ redirectTo: "/" });
-            }}
-          >
-            <Button variant="destructive" type="submit">
-              로그아웃
-            </Button>
-          </form>
-
-          {/* Space에 Moment 추가 폼 */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Space에 Moment 추가</h2>
-            <form
-              action={async (formData: FormData) => {
-                "use server";
-                const spaceId = formData.get("spaceId") as string;
-                const momentId = formData.get("momentId") as string;
-                await addMomentToSpace(spaceId, momentId);
-              }}
-              className="grid grid-cols-2 gap-4"
-            >
-              <div className="flex flex-col">
-                <label htmlFor="spaceId" className="mb-2 text-sm font-medium">
-                  Space 선택
-                </label>
-                <Select name="spaceId" required>
-                  <SelectTrigger className="bg-white/50 border-white/20">
-                    <SelectValue placeholder="Space를 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {spaces.data.map((space) => (
-                      <SelectItem key={space.id} value={space.id}>
-                        {space.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col">
-                <label htmlFor="momentId" className="mb-2 text-sm font-medium">
-                  Moment 선택
-                </label>
-                <Select name="momentId" required>
-                  <SelectTrigger className="bg-white/50 border-white/20">
-                    <SelectValue placeholder="Moment를 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {moments.data.map((moment) => (
-                      <SelectItem key={moment.id} value={moment.id}>
-                        {moment.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="col-span-2">Moment 추가</Button>
-            </form>
-          </div>
-
-          {/* Space 벌크 생성 폼 */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Space 벌크 생성</h2>
-            <form
-              action={async (formData: FormData) => {
-                "use server";
-                const jsonData = formData.get("spacesJson") as string;
-                try {
-                  const parsed = JSON.parse(jsonData);
-                  const parsedResult = z.array(CreateSpace).safeParse(parsed);
-
-                  if (!parsedResult.success) {
-                    throw new Error("유효하지 않은 Space 데이터입니다.");
-                  }
-                  const spaces = parsedResult.data;
-                  for (const space of spaces) {
-                    await createSpace({
-                      ...space,
-                      contributors: [user.id],
-                      createdAt: new Date().toISOString(),
-                    });
-                  }
-                } catch (error) {
-                  console.error("Space 벌크 생성 오류:", error);
-                }
-              }}
-              className="flex flex-col gap-4"
-            >
-              <Textarea
-                name="spacesJson"
-                placeholder='[{"title": "Space1", "image": "url", "description": "설명"}, ...]'
-                required
-                className="h-40 bg-white/50 border-white/20"
-              />
-              <Button type="submit" className="w-full">Space 벌크 생성</Button>
-            </form>
-          </div>
-
-          {/* Moment 벌크 생성 폼 */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Moment 벌크 생성</h2>
-            <form
-              action={async (formData: FormData) => {
-                "use server";
-                const jsonData = formData.get("momentsJson") as string;
-                try {
-                  const parsed = JSON.parse(jsonData);
-                  const parsedResult = z.array(CreateMoment).safeParse(parsed);
-
-                  if (!parsedResult.success) {
-                    throw new Error("유효하지 않은 Moment 데이터입니다.");
-                  }
-
-                  const moments = parsedResult.data;
-
-                  for (const moment of moments) {
-                    await createMoment({
-                      ...moment,
-                      author: user.id,
-                      createdAt: new Date().toISOString(),
-                      modifiedAt: new Date().toISOString(),
-                    });
-                  }
-                } catch (error) {
-                  console.error("Moment 벌크 생성 오류:", error);
-                }
-              }}
-              className="flex flex-col gap-4"
-            >
-              <Textarea
-                name="momentsJson"
-                placeholder='[{"title": "Moment1", "content": "내용"}, ...]'
-                required
-                className="h-40 bg-white/50 border-white/20"
-              />
-              <Button type="submit" className="w-full">Moment 벌크 생성</Button>
-            </form>
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          className="space-y-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          {/* 기여 중인 Spaces */}
-          <div className={cn(
-            "backdrop-blur-lg bg-white/30",
-            "border border-white/20",
-            "rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]",
-            "p-8"
           )}>
-            <h2 className="text-xl font-bold mb-6">기여 중인 Spaces</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {spaces.data.map((space) => (
-                <div key={space.id} className="bg-white/50 rounded-lg p-4">
-                  <h3 className="font-semibold">{space.title}</h3>
-                  <p className="text-sm text-gray-600 mt-2">{space.description}</p>
+            {/* 로그아웃 버튼 */}
+            <form
+              action={async () => {
+                "use server";
+                await logout({ redirectTo: "/" });
+              }}
+            >
+              <Button variant="destructive" type="submit">
+                로그아웃
+              </Button>
+            </form>
+
+            {/* Space에 Moment 추가 폼 */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">Space에 Moment 추가</h2>
+              <form
+                action={async (formData: FormData) => {
+                  "use server";
+                  const spaceId = formData.get("spaceId") as string;
+                  const momentId = formData.get("momentId") as string;
+                  await addMomentToSpace(spaceId, momentId);
+                }}
+                className="grid grid-cols-2 gap-4"
+              >
+                <div className="flex flex-col">
+                  <label htmlFor="spaceId" className="mb-2 text-sm font-medium">
+                    Space 선택
+                  </label>
+                  <Select name="spaceId" required>
+                    <SelectTrigger className="bg-white/50 border-white/20">
+                      <SelectValue placeholder="Space를 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {spaces.data.map((space) => (
+                        <SelectItem key={space.id} value={space.id}>
+                          {space.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              ))}
+                <div className="flex flex-col">
+                  <label htmlFor="momentId" className="mb-2 text-sm font-medium">
+                    Moment 선택
+                  </label>
+                  <Select name="momentId" required>
+                    <SelectTrigger className="bg-white/50 border-white/20">
+                      <SelectValue placeholder="Moment를 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {moments.data.map((moment) => (
+                        <SelectItem key={moment.id} value={moment.id}>
+                          {moment.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="col-span-2">Moment 추가</Button>
+              </form>
             </div>
-          </div>
 
-          {/* 작성한 Moments */}
-          <div className={cn(
-            "backdrop-blur-lg bg-white/30",
-            "border border-white/20",
-            "rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)]",
-            "p-8"
-          )}>
-            <h2 className="text-xl font-bold mb-6">작성한 Moments</h2>
-            <MomentTimeline moments={moments.data} />
-          </div>
-        </motion.div>
-      )}
+            {/* Space 벌크 생성 폼 */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">Space 벌크 생성</h2>
+              <form
+                action={async (formData: FormData) => {
+                  "use server";
+                  const jsonData = formData.get("spacesJson") as string;
+                  try {
+                    const parsed = JSON.parse(jsonData);
+                    const parsedResult = z.array(CreateSpace).safeParse(parsed);
+
+                    if (!parsedResult.success) {
+                      throw new Error("유효하지 않은 Space 데이터입니다.");
+                    }
+                    const spaces = parsedResult.data;
+                    for (const space of spaces) {
+                      await createSpace({
+                        ...space,
+                        contributors: [user.id],
+                        createdAt: new Date().toISOString(),
+                      });
+                    }
+                  } catch (error) {
+                    console.error("Space 벌크 생성 오류:", error);
+                  }
+                }}
+                className="flex flex-col gap-4"
+              >
+                <Textarea
+                  name="spacesJson"
+                  placeholder='[{"title": "Space1", "image": "url", "description": "설명"}, ...]'
+                  required
+                  className="h-40 bg-white/50 border-white/20"
+                />
+                <Button type="submit" className="w-full">Space 벌크 생성</Button>
+              </form>
+            </div>
+
+            {/* Moment 벌크 생성 폼 */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold">Moment 벌크 생성</h2>
+              <form
+                action={async (formData: FormData) => {
+                  "use server";
+                  const jsonData = formData.get("momentsJson") as string;
+                  try {
+                    const parsed = JSON.parse(jsonData);
+                    const parsedResult = z.array(CreateMoment).safeParse(parsed);
+
+                    if (!parsedResult.success) {
+                      throw new Error("유효하지 않은 Moment 데이터입니다.");
+                    }
+
+                    const moments = parsedResult.data;
+
+                    for (const moment of moments) {
+                      await createMoment({
+                        ...moment,
+                        author: user.id,
+                        createdAt: new Date().toISOString(),
+                        modifiedAt: new Date().toISOString(),
+                      });
+                    }
+                  } catch (error) {
+                    console.error("Moment 벌크 생성 오류:", error);
+                  }
+                }}
+                className="flex flex-col gap-4"
+              >
+                <Textarea
+                  name="momentsJson"
+                  placeholder='[{"title": "Moment1", "content": "내용"}, ...]'
+                  required
+                  className="h-40 bg-white/50 border-white/20"
+                />
+                <Button type="submit" className="w-full">Moment 벌크 생성</Button>
+              </form>
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
     </motion.div>
   );
 }

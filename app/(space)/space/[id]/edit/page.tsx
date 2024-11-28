@@ -282,7 +282,7 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
       
       const refinedTitle = await generateAiText(
         title,
-        "title_recommendation"
+        "title_refinement"
       );
       
       setTitle(refinedTitle);
@@ -304,7 +304,7 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
       
       const refinedDescription = await generateAiText(
         description,
-        "content_recommendation"
+        "content_refinement"
       );
       
       setDescription(refinedDescription);
