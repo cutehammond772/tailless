@@ -24,7 +24,7 @@ export default function Header() {
     <>
       <motion.div
         className={cn(
-          "h-16 md:h-20 px-4 md:px-6 my-4 md:my-6",
+          "h-12 md:h-16 px-4 md:px-6 my-4 md:my-6",
           "relative flex justify-between items-center",
           "rounded-full bg-white/75 backdrop-blur-lg",
           "border border-white/20 shadow-[0_4px_16px_0_rgba(31,38,135,0.15)]"
@@ -68,7 +68,7 @@ export default function Header() {
                 )}
               >
                 <Hexagon className="w-5 h-5" />
-                <span>Spaces</span>
+                <span className="font-bold">SPACES</span>
               </MotionLink>
             </motion.div>
 
@@ -88,7 +88,7 @@ export default function Header() {
                 )}
               >
                 <Loader className="w-5 h-5" />
-                <span>Moments</span>
+                <span className="font-bold">MOMENTS</span>
               </MotionLink>
             </motion.div>
           </motion.div>
