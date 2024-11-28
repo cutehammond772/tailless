@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import type { User } from "@/db/user";
 import {
   Check,
@@ -101,18 +101,6 @@ type Metadata = {
 interface MomentEditPageProps {
   params: Promise<{ id: string }>;
 }
-
-const formatDate = (date: string) => {
-  try {
-    return new Date(date).toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-    });
-  } catch {
-    return "알 수 없음";
-  }
-};
 
 // AI Processing Animation Component
 const ProcessingAnimation = ({ streamingText }: { streamingText?: string }) => (
@@ -245,15 +233,32 @@ const TitleInput = ({
   title,
   onChange,
   validationErrors,
+  onAiRefine,
+  isGenerating,
 }: {
   title: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   validationErrors: z.ZodError | null;
+  onAiRefine: () => void;
+  isGenerating: boolean;
 }) => (
   <div className="space-y-3">
-    <Label htmlFor="title" className="text-lg font-semibold tracking-tight">
-      제목
-    </Label>
+    <div className="flex items-center justify-between">
+      <Label htmlFor="title" className="text-lg font-semibold tracking-tight">
+        제목
+      </Label>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
+        onClick={onAiRefine}
+        disabled={isGenerating}
+      >
+        <Sparkle className="w-3.5 h-3.5" />
+        {isGenerating ? "다듬는 중..." : "다듬기"}
+      </Button>
+    </div>
     <div className="relative">
       <Input
         id="title"
@@ -262,7 +267,7 @@ const TitleInput = ({
         className={cn(
           "text-xl font-medium p-4",
           "bg-white/50 rounded-xl border-2",
-          "focus:bg-white/70 transition-all duration-200",
+          "focus:bg-white/70 transition-all duration-200", 
           "hover:bg-white/60 hover:border-purple-200/50",
           "focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400",
           "placeholder:text-gray-400/70",
@@ -392,7 +397,7 @@ const BlockActions = ({
       <motion.div className="absolute left-1/2 -translate-x-1/2 -bottom-8 w-full max-w-[95vw] md:max-w-none flex items-center justify-center z-10">
         <motion.div
           className={cn(
-            "flex flex-wrap items-center gap-1.5 md:gap-2 backdrop-blur-md bg-white/50 rounded-full p-1.5",
+            "flex items-center gap-1.5 md:gap-2 backdrop-blur-md bg-white/50 rounded-full p-1.5",
             "opacity-0 group-hover:opacity-100 transition-all shadow-lg border border-white/30",
             "w-auto mx-auto"
           )}
@@ -573,6 +578,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
   const [availableSpaces, setAvailableSpaces] = useState<Space[]>([]);
   const [selectedSpaces, setSelectedSpaces] = useState<Space[]>([]);
   const [open, setOpen] = useState(false);
+  const [isTitleAiRefining, setIsTitleAiRefining] = useState(false);
 
   // Handlers and Effects
   useEffect(() => {
@@ -917,6 +923,28 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
     setIsFormDirty(isDirty);
   };
 
+  const handleTitleAiRefine = async () => {
+    if (!title.trim()) return;
+    
+    try {
+      setIsTitleAiRefining(true);
+      
+      const refinedTitle = await generateAiText(
+        title,
+        "title_recommendation"
+      );
+      
+      setTitle(refinedTitle);
+      setIsFormDirty(true);
+      
+    } catch (error) {
+      console.error("제목 다듬기 중 오류:", error);
+      setError("제목 다듬기 중 오류가 발생했습니다.");
+    } finally {
+      setIsTitleAiRefining(false);
+    }
+  };
+
   if (error) {
     return <ErrorAlert message={error} />;
   }
@@ -952,6 +980,8 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
               title={title}
               onChange={handleTitleChange}
               validationErrors={validationErrors}
+              onAiRefine={handleTitleAiRefine}
+              isGenerating={isTitleAiRefining}
             />
 
             <motion.div className="space-y-2">
@@ -1039,7 +1069,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
                   <motion.div
                     key={block.id}
                     className={cn(
-                      "group relative p-4 md:p-6 rounded-xl w-full",
+                      "group relative p-2 md:p-4 rounded-xl w-full",
                       "bg-white/40 hover:bg-white/50 transition-all duration-200",
                       "border border-transparent hover:border-purple-200/50",
                       focusedBlockId === block.id && "ring-2 ring-purple-500/50"
@@ -1062,7 +1092,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
                             adjustTextareaHeight(e.target);
                           }}
                           onFocus={() => setFocusedBlockId(block.id)}
-                          className="w-full bg-transparent outline-none resize-none focus:ring-0 p-0 text-gray-700 placeholder-gray-400 overflow-hidden"
+                          className="w-full bg-transparent outline-none resize-none focus:ring-0 text-gray-700 placeholder-gray-400 overflow-hidden p-0"
                           placeholder="내용을 입력하세요..."
                           data-block-id={block.id}
                           initial={{ opacity: 0 }}

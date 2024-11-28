@@ -1,13 +1,14 @@
-import localFont from "next/font/local";
-import { SessionProvider } from "next-auth/react";
+import { Suspense } from "react";
 import * as motion from "framer-motion/client";
+import { SessionProvider } from "next-auth/react";
+import localFont from "next/font/local";
+import NextTopLoader from "nextjs-toploader";
 
 import "./globals.css";
 import { auth } from "@/auth";
 import { cn } from "@/lib/utils";
 import Header from "@/components/header";
 import { Toaster } from "@/components/ui/toaster";
-import { Suspense } from "react";
 
 const pretendard = localFont({
   src: "./fonts/PretendardVariable.woff2",
@@ -62,6 +63,7 @@ export default async function RootLayout({
             </motion.main>
           </motion.div>
           <Toaster />
+          <NextTopLoader color="#7782FF" showSpinner={false} />
         </SessionProvider>
       </body>
     </html>

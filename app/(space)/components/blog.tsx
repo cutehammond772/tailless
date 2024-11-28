@@ -29,6 +29,7 @@ import {
 import type { Moment } from "@/db/moment";
 import type { User } from "@/db/user";
 import { HttpStatus } from "@/actions/response";
+import { formatDate } from "@/lib/utils";
 
 interface BlogMomentsProps {
   moments: Moment[];
@@ -37,8 +38,8 @@ interface BlogMomentsProps {
 export function BlogMoments({ moments }: BlogMomentsProps) {
   return (
     <div className="space-y-4">
-      {moments.map((moment, index) => (
-        <BlogMoment key={moment.id} moment={moment} index={index} />
+      {moments.map((moment) => (
+        <BlogMoment key={moment.id} moment={moment} />
       ))}
     </div>
   );
@@ -46,10 +47,9 @@ export function BlogMoments({ moments }: BlogMomentsProps) {
 
 interface BlogMomentProps {
   moment: Moment;
-  index: number;
 }
 
-function BlogMoment({ moment, index }: BlogMomentProps) {
+function BlogMoment({ moment }: BlogMomentProps) {
   const router = useRouter();
   const [author, setAuthor] = useState<User | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -74,20 +74,12 @@ function BlogMoment({ moment, index }: BlogMomentProps) {
     fetchCurrentUser();
   }, [moment.author]);
 
-  const formatDate = (date: string) => {
-    try {
-      return new Date(date).toLocaleDateString("ko-KR", {
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-      });
-    } catch {
-      return "알 수 없음";
-    }
-  };
-
   const handleEdit = () => {
     router.push(`/moment/${moment.id}/edit`);
+  };
+
+  const handleClick = () => {
+    router.push(`/moment/${moment.id}`);
   };
 
   const handleDelete = async () => {
@@ -105,12 +97,15 @@ function BlogMoment({ moment, index }: BlogMomentProps) {
     <motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
+      transition={{ duration: 0.3 }}
       className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
     >
       <div className="flex justify-between items-center">
         <div className="flex-1">
-          <h3 className="text-lg font-medium hover:text-blue-600 cursor-pointer">
+          <h3
+            className="text-lg font-medium hover:text-blue-600 cursor-pointer"
+            onClick={handleClick}
+          >
             {moment.title}
           </h3>
           <div className="flex items-center gap-3 mt-2">

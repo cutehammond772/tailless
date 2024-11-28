@@ -12,6 +12,7 @@ import {
   BookOpen,
   Lightbulb,
   Clock,
+  Sparkle,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/db/layout";
+import { generateAiText } from "@/actions/ai/text";
 
 // Validation Schema
 const spaceSchema = z.object({
@@ -155,6 +157,8 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
     tags: string[];
     layout: z.infer<typeof Layout>;
   } | null>(null);
+  const [isTitleAiRefining, setIsTitleAiRefining] = useState(false);
+  const [isDescriptionAiRefining, setIsDescriptionAiRefining] = useState(false);
 
   useEffect(() => {
     const loadSpace = async () => {
@@ -270,6 +274,50 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
     }
   };
 
+  const handleTitleAiRefine = async () => {
+    if (!title.trim()) return;
+    
+    try {
+      setIsTitleAiRefining(true);
+      
+      const refinedTitle = await generateAiText(
+        title,
+        "title_recommendation"
+      );
+      
+      setTitle(refinedTitle);
+      setIsFormDirty(true);
+      
+    } catch (error) {
+      console.error("제목 다듬기 중 오류:", error);
+      setError("제목 다듬기 중 오류가 발생했습니다.");
+    } finally {
+      setIsTitleAiRefining(false);
+    }
+  };
+
+  const handleDescriptionAiRefine = async () => {
+    if (!description.trim()) return;
+    
+    try {
+      setIsDescriptionAiRefining(true);
+      
+      const refinedDescription = await generateAiText(
+        description,
+        "content_recommendation"
+      );
+      
+      setDescription(refinedDescription);
+      setIsFormDirty(true);
+      
+    } catch (error) {
+      console.error("설명 다듬기 중 오류:", error);
+      setError("설명 다듬기 중 오류가 발생했습니다.");
+    } finally {
+      setIsDescriptionAiRefining(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 md:p-8">
       <motion.div
@@ -359,7 +407,20 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                 >
-                  <label className="text-sm font-medium">Space 제목</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Space 제목</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
+                      onClick={handleTitleAiRefine}
+                      disabled={isTitleAiRefining}
+                    >
+                      <Sparkle className="w-3.5 h-3.5" />
+                      {isTitleAiRefining ? "다듬는 중..." : "다듬기"}
+                    </Button>
+                  </div>
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -401,7 +462,20 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <label className="text-sm font-medium">Space 설명</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Space 설명</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
+                      onClick={handleDescriptionAiRefine}
+                      disabled={isDescriptionAiRefining}
+                    >
+                      <Sparkle className="w-3.5 h-3.5" />
+                      {isDescriptionAiRefining ? "다듬는 중..." : "다듬기"}
+                    </Button>
+                  </div>
                   <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
