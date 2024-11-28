@@ -4,7 +4,7 @@ import * as motion from "framer-motion/client";
 // Server Actions
 import { HttpStatus } from "@/actions/response";
 import { getSpaces } from "@/actions/space/primitives";
-import SpaceItem from "./components/space-item";
+import SpaceCard from "@/features/space/space-card";
 
 export default async function MainPage() {
   const spaces = await getSpaces({});
@@ -22,7 +22,7 @@ export default async function MainPage() {
     >
       <motion.div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
         {spaces.data.map((space) => (
-          <SpaceItem key={space.id} space={space} />
+          <SpaceCard key={space.id} space={space} />
         ))}
       </motion.div>
     </motion.div>

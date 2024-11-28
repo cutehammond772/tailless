@@ -28,7 +28,7 @@ async function searchUsers(email: string): Promise<User[]> {
   return response.data;
 }
 
-export default function Contributors({
+export default function SpaceContributors({
   space,
   contributors,
 }: {

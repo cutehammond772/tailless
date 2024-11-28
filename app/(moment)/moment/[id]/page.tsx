@@ -11,11 +11,11 @@ import {
 import { HttpStatus } from "@/actions/response";
 import { getMoments, getMoment } from "@/actions/moment/primitives";
 import { getSpaces } from "@/actions/space/primitives";
-
-import MomentCard from "@/app/(moment)/components/moment-card";
-import MomentContent from "@/app/(moment)/components/moment-content";
-import SpaceItem from "@/app/(main)/components/space-item";
 import { Space } from "@/db/space";
+
+import MomentCard from "@/features/moment/moment-card";
+import MomentContent from "@/features/moment/moment-content";
+import SpaceCard from "@/features/space/space-card";
 
 interface RelatedSpacesProps {
   spaces: Space[];
@@ -62,7 +62,7 @@ function RelatedSpaces({ spaces }: RelatedSpacesProps) {
                 whileHover={{ scale: 1.02 }}
                 className="h-full"
               >
-                <SpaceItem space={space} />
+                <SpaceCard space={space} />
               </motion.div>
             </CarouselItem>
           ))}

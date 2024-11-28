@@ -1,10 +1,23 @@
 import Link from "next/link";
 import * as motion from "framer-motion/client";
-import { Tags, Users, ArrowRight } from "lucide-react";
+
+import { Tags, Users, ArrowRight, BookOpen, Lightbulb, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Space } from "@/db/space";
 
-export default function SpaceItem({ space }: { space: Space }) {
+export default function SpaceCard({ space }: { space: Space }) {
+  const layoutIcons = {
+    blog: <BookOpen className="w-4 h-4" />,
+    idea: <Lightbulb className="w-4 h-4" />,
+    timeline: <Clock className="w-4 h-4" />
+  };
+
+  const layoutLabels = {
+    blog: "블로그",
+    idea: "아이디어",
+    timeline: "타임라인"
+  };
+
   return (
     <Link href={`/space/${space.id}`} key={space.title}>
       <motion.div
@@ -20,7 +33,7 @@ export default function SpaceItem({ space }: { space: Space }) {
             backgroundImage: `url(${space.image})`,
           }}
         />
-        
+
         {/* 그라데이션 오버레이 */}
         <motion.div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
@@ -29,6 +42,12 @@ export default function SpaceItem({ space }: { space: Space }) {
           <motion.div className="space-y-4 md:space-y-4 transform group-hover:translate-y-[-8px] transition-transform duration-300">
             {/* 제목과 설명 */}
             <motion.div className="space-y-2 md:space-y-2">
+              <motion.div className="flex items-center gap-2 text-white/80 mb-1">
+                {layoutIcons[space.layout]}
+                <motion.span className="text-xs">
+                  {layoutLabels[space.layout]}
+                </motion.span>
+              </motion.div>
               <motion.h1 className="text-2xl md:text-2xl lg:text-3xl font-bold text-white">
                 {space.title}
               </motion.h1>

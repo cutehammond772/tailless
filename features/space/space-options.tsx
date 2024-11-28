@@ -1,9 +1,9 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Trash2, LogOut } from "lucide-react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { MoreHorizontal, Pencil, Trash2, LogOut } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -27,11 +27,11 @@ import { deleteSpace } from "@/actions/space/primitives";
 import { removeContributor } from "@/actions/space/contributor";
 import { HttpStatus } from "@/actions/response";
 
-interface SpaceOptionProps {
+export interface SpaceOptionsProps {
   space: Space;
 }
 
-export default function SpaceOption({ space }: SpaceOptionProps) {
+export default function SpaceOptions({ space }: SpaceOptionsProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);

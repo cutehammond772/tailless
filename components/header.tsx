@@ -68,7 +68,7 @@ export default function Header() {
                 )}
               >
                 <Hexagon className="w-5 h-5" />
-                <span className="font-bold">SPACES</span>
+                <span className="font-bold text-sm">SPACES</span>
               </MotionLink>
             </motion.div>
 
@@ -88,7 +88,7 @@ export default function Header() {
                 )}
               >
                 <Loader className="w-5 h-5" />
-                <span className="font-bold">MOMENTS</span>
+                <span className="font-bold text-sm">MOMENTS</span>
               </MotionLink>
             </motion.div>
           </motion.div>
