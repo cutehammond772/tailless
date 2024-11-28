@@ -6,6 +6,7 @@ import { Space } from "@/db/space";
 import { User } from "@/db/user";
 import Contributors from "./contributors";
 import SpaceOption from "./option";
+import { formatDate } from "@/lib/utils";
 
 export default function SpaceBanner({
   space,
@@ -14,14 +15,6 @@ export default function SpaceBanner({
   space: Space;
   contributors: User[];
 }) {
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-    });
-  };
-
   return (
     <motion.div
       className="group relative overflow-hidden rounded-2xl shadow-2xl"
@@ -31,7 +24,7 @@ export default function SpaceBanner({
     >
       {/* 배경 이미지 */}
       <motion.div
-        className="aspect-[3/4] sm:aspect-[16/9] md:aspect-[21/9] transform bg-cover bg-center transition-transform duration-500"
+        className="aspect-[1/1] sm:aspect-[16/9] md:aspect-[1/1] transform bg-cover bg-center transition-transform duration-500"
         style={{
           backgroundImage: `url(${space.image})`,
         }}
@@ -74,7 +67,7 @@ export default function SpaceBanner({
             <motion.div className="flex items-center gap-2 sm:gap-3">
               <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-white/80" />
               <motion.p className="text-white/90 text-xs sm:text-sm">
-                {formatDate(new Date(space.createdAt))}
+                {formatDate(space.createdAt)}
               </motion.p>
             </motion.div>
 

@@ -288,18 +288,13 @@ export default function NewMomentPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        {/* 헤더 */}
-        <div className="flex items-center justify-between">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full"><div className="flex items-center justify-between">
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
               돌아가기
             </Button>
           </Link>
-          <h1 className="text-xl font-bold">새로운 Moment</h1>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-2 rounded-full p-1.5 mx-2 md:mx-0 bg-white/10 backdrop-blur-sm shadow-inner">
             {[
               {
@@ -332,6 +327,8 @@ export default function NewMomentPage() {
               </TabsTrigger>
             ))}
           </TabsList>
+        </div>
+          
 
           <TabsContent value="edit" className="mt-6">
             <motion.div

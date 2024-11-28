@@ -408,7 +408,7 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
                   transition={{ delay: 0.1 }}
                 >
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Space 제목</label>
+                    <label className="text-sm font-medium">제목</label>
                     <Button
                       type="button"
                       variant="outline"
@@ -463,7 +463,7 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
                   transition={{ delay: 0.3 }}
                 >
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Space 설명</label>
+                    <label className="text-sm font-medium">설명</label>
                     <Button
                       type="button"
                       variant="outline"
