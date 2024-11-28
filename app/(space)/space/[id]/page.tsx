@@ -1,6 +1,6 @@
 import { HttpStatus } from "@/actions/response";
 import { getSpace } from "@/actions/space/primitives";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 export interface SpacePageProps {
   params: Promise<{
@@ -13,7 +13,7 @@ export default async function SpacePage({ params }: SpacePageProps) {
   const space = await getSpace({ id });
 
   if (space.status !== HttpStatus.OK) {
-    return <div>Space not found</div>;
+    notFound();
   }
 
   redirect(`/space/${space.data.id}/${space.data.layout}`);

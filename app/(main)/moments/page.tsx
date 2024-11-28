@@ -1,6 +1,6 @@
 import { HttpStatus } from "@/actions/response";
 import { getMoments } from "@/actions/moment/primitives";
-import MomentTimeline from "../components/moment-timeline";
+import MomentTimeline from "@/app/(main)/components/moment-timeline";
 
 export default async function MomentsPage() {
   try {

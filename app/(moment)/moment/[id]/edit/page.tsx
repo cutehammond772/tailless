@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -96,7 +96,7 @@ type Metadata = {
   author: string;
   createdAt: string;
   modifiedAt: string;
-}
+};
 
 interface MomentEditPageProps {
   params: Promise<{ id: string }>;
@@ -267,7 +267,7 @@ const TitleInput = ({
         className={cn(
           "text-xl font-medium p-4",
           "bg-white/50 rounded-xl border-2",
-          "focus:bg-white/70 transition-all duration-200", 
+          "focus:bg-white/70 transition-all duration-200",
           "hover:bg-white/60 hover:border-purple-200/50",
           "focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400",
           "placeholder:text-gray-400/70",
@@ -358,6 +358,7 @@ const BlockActions = ({
   isProcessing,
   isFirst,
   isLast,
+  isFocused,
 }: {
   onAddBlock: (id: string) => void;
   onDeleteBlock: (id: string) => void;
@@ -371,6 +372,7 @@ const BlockActions = ({
   isProcessing: boolean;
   isFirst: boolean;
   isLast: boolean;
+  isFocused: boolean;
 }) => {
   const [showAiTools, setShowAiTools] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
@@ -398,8 +400,14 @@ const BlockActions = ({
         <motion.div
           className={cn(
             "flex items-center gap-1.5 md:gap-2 backdrop-blur-md bg-white/50 rounded-full p-1.5",
-            "opacity-0 group-hover:opacity-100 transition-all shadow-lg border border-white/30",
-            "w-auto mx-auto"
+            "shadow-lg border border-white/30",
+            "w-auto mx-auto",
+            isMobile
+              ? cn(
+                  "opacity-0 transition-opacity duration-200",
+                  isFocused && "opacity-100"
+                )
+              : "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           )}
         >
           <Button
@@ -506,9 +514,9 @@ const VersionSelector = ({
   onVersionSelect: (blockId: string, index: number) => void;
   blockId: string;
 }) => (
-  <div className="mb-4 overflow-x-auto scrollbar scrollbar-hide whitespace-nowrap">
+  <div className="overflow-x-auto scrollbar scrollbar-hide whitespace-nowrap">
     <div className="inline-flex gap-2 pb-2">
-      {versions.map((version, index) => (
+      {versions.map((_, index) => (
         <Button
           key={index}
           type="button"
@@ -554,6 +562,107 @@ const MetadataBadges = ({
     </div>
   </div>
 );
+
+// BlockContent Component 추가
+const BlockContent = ({
+  content,
+  onChange,
+  onFocus,
+  blockId,
+  hasMultipleVersions,
+}: {
+  content: string;
+  onChange: (content: string) => void;
+  onFocus: () => void;
+  blockId: string;
+  hasMultipleVersions: boolean;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const commonTextStyles = cn(
+    "w-full",
+    "text-left text-base leading-relaxed",
+    "whitespace-pre-wrap break-words",
+    !content && "text-gray-400",
+    hasMultipleVersions && "p-3",
+  );
+
+  const handleButtonClick = () => {
+    setIsEditing(true);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+  };
+
+  const adjustTextareaHeight = (textarea: HTMLTextAreaElement) => {
+    textarea.style.height = "0px";
+    textarea.style.height = textarea.scrollHeight + "px";
+  };
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      adjustTextareaHeight(textareaRef.current);
+    }
+  }, [isEditing, content]);
+
+  if (!isEditing) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleButtonClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            handleButtonClick();
+          }
+        }}
+        className={cn(
+          commonTextStyles,
+          "cursor-pointer",
+          "hover:bg-white/10",
+          "transition-colors duration-200",
+          "focus:outline-none",
+          "min-h-[2.5rem]",
+          hasMultipleVersions && "rounded-lg ring-inset ring-1 ring-black/10"
+        )}
+      >
+        {content || "내용을 입력하세요..."}
+      </div>
+    );
+  }
+
+  return (
+    <motion.textarea
+      ref={textareaRef}
+      value={content}
+      onChange={(e) => {
+        onChange(e.target.value);
+        adjustTextareaHeight(e.target);
+      }}
+      onFocus={onFocus}
+      onBlur={handleBlur}
+      className={cn(
+        commonTextStyles,
+        "bg-transparent",
+        "outline-none resize-none",
+        "transition-colors duration-200",
+        hasMultipleVersions ? "rounded-lg ring-inset ring-1 ring-purple-500" : "border-none focus:ring-0"
+      )}
+      placeholder="내용을 입력하세요..."
+      data-block-id={blockId}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    />
+  );
+};
 
 export default function MomentEditPage({ params }: MomentEditPageProps) {
   const router = useRouter();
@@ -925,18 +1034,14 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
 
   const handleTitleAiRefine = async () => {
     if (!title.trim()) return;
-    
+
     try {
       setIsTitleAiRefining(true);
-      
-      const refinedTitle = await generateAiText(
-        title,
-        "title_recommendation"
-      );
-      
+
+      const refinedTitle = await generateAiText(title, "title_recommendation");
+
       setTitle(refinedTitle);
       setIsFormDirty(true);
-      
     } catch (error) {
       console.error("제목 다듬기 중 오류:", error);
       setError("제목 다듬기 중 오류가 발생했습니다.");
@@ -1064,15 +1169,16 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
 
             <div className="space-y-3">
               <Label className="text-lg font-semibold">내용</Label>
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {blocks.map((block, index) => (
                   <motion.div
                     key={block.id}
                     className={cn(
-                      "group relative p-2 md:p-4 rounded-xl w-full",
-                      "bg-white/40 hover:bg-white/50 transition-all duration-200",
-                      "border border-transparent hover:border-purple-200/50",
-                      focusedBlockId === block.id && "ring-2 ring-purple-500/50"
+                      "group relative rounded-xl w-full",
+                      "hover:bg-white/5 transition-all duration-200",
+                      "border-0",
+                      block.versions.length > 1 && "bg-purple-50/10",
+                      focusedBlockId === block.id && "bg-white/10"
                     )}
                   >
                     {block.versions.length > 1 && (
@@ -1085,19 +1191,12 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
                     )}
                     <div className="flex items-start gap-4 w-full">
                       <div className="flex-grow relative">
-                        <motion.textarea
-                          value={block.versions[block.selectedVersion].content}
-                          onChange={(e) => {
-                            handleBlockChange(block.id, e.target.value);
-                            adjustTextareaHeight(e.target);
-                          }}
+                        <BlockContent
+                          content={block.versions[block.selectedVersion].content}
+                          onChange={(content) => handleBlockChange(block.id, content)}
                           onFocus={() => setFocusedBlockId(block.id)}
-                          className="w-full bg-transparent outline-none resize-none focus:ring-0 text-gray-700 placeholder-gray-400 overflow-hidden p-0"
-                          placeholder="내용을 입력하세요..."
-                          data-block-id={block.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.2 }}
+                          blockId={block.id}
+                          hasMultipleVersions={block.versions.length > 1}
                         />
                         <AnimatePresence>
                           {block.isProcessing && (
@@ -1118,6 +1217,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
                       isProcessing={block.isProcessing || false}
                       isFirst={index === 0}
                       isLast={index === blocks.length - 1}
+                      isFocused={focusedBlockId === block.id}
                     />
                   </motion.div>
                 ))}

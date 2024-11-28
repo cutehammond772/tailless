@@ -1,11 +1,11 @@
+import { Suspense } from "react";
 import * as motion from "framer-motion/client";
 import { Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Moment } from "@/db/moment";
-import MomentCard from "./moment-card";
-import MomentContent from "./moment-content";
-import { Suspense } from "react";
 import { formatDate } from "@/lib/utils";
+import MomentContent from "@/features/moment/moment-content";
+import MomentCard from "@/features/moment/moment-card";
 
 interface MomentTimelineProps {
   moments: Moment[];

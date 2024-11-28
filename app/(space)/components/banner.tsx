@@ -4,8 +4,8 @@ import { Tags, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Space } from "@/db/space";
 import { User } from "@/db/user";
-import Contributors from "./contributors";
-import SpaceOption from "./option";
+import SpaceContributors from "@/features/space/space-contributors";
+import SpaceOptions from "@/features/space/space-options";
 import { formatDate } from "@/lib/utils";
 
 export default function SpaceBanner({
@@ -73,10 +73,10 @@ export default function SpaceBanner({
 
             <motion.div className="flex items-center gap-2 sm:gap-3">
               {/* 기여자 */}
-              <Contributors space={space} contributors={contributors} />
+              <SpaceContributors space={space} contributors={contributors} />
 
               {/* 옵션 */}
-              <SpaceOption space={space} />
+              <SpaceOptions space={space} />
             </motion.div>
           </motion.div>
         </motion.div>
