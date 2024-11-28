@@ -1037,8 +1037,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
 
     try {
       setIsTitleAiRefining(true);
-
-      const refinedTitle = await generateAiText(title, "title_recommendation");
+      const refinedTitle = await generateAiText(title, "title_refinement");
 
       setTitle(refinedTitle);
       setIsFormDirty(true);

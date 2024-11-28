@@ -220,12 +220,12 @@ export default function NewMomentPage() {
     setIsGenerating(true);
     try {
       const response = await generateAiText(
-        target === "title_recommendation" ? title : content,
+        target === "title_refinement" ? title : content,
         target
       );
 
       if (response) {
-        if (target === "title_recommendation") {
+        if (target === "title_refinement") {
           setTitle(response);
         } else {
           setContent(response);
@@ -365,7 +365,7 @@ export default function NewMomentPage() {
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
-                      onClick={() => handleAiGenerate("title_recommendation")}
+                      onClick={() => handleAiGenerate("title_refinement")}
                       disabled={isGenerating}
                     >
                       <Sparkle className="w-3.5 h-3.5" />
@@ -397,7 +397,7 @@ export default function NewMomentPage() {
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
-                      onClick={() => handleAiGenerate("content_recommendation")}
+                      onClick={() => handleAiGenerate("content_refinement")}
                       disabled={isGenerating}
                     >
                       <Sparkle className="w-3.5 h-3.5" />

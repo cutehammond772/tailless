@@ -205,7 +205,7 @@ export default function NewSpacePage() {
     try {
       setIsTitleAiRefining(true);
 
-      const refinedTitle = await generateAiText(title, "title_recommendation");
+      const refinedTitle = await generateAiText(title, "title_refinement");
 
       setTitle(refinedTitle);
     } catch (error) {
@@ -224,7 +224,7 @@ export default function NewSpacePage() {
 
       const refinedDescription = await generateAiText(
         description,
-        "content_recommendation"
+        "content_refinement"
       );
 
       setDescription(refinedDescription);
@@ -393,10 +393,43 @@ export default function NewSpacePage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
                 >
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Tags className="w-4 h-4" />
-                    태그
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Tags className="w-4 h-4" />
+                      태그
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
+                      onClick={async () => {
+                        try {
+                          // 제목과 설명을 합쳐서 AI에 전달
+                          const combinedText = `${title}\n\n${description}`;
+                          const recommendedTags = await generateAiText(
+                            combinedText,
+                            "tag_recommendation"
+                          );
+                          
+                          // 추천된 태그 문자열을 배열로 변환하고 중복 제거
+                          const newTags = recommendedTags
+                            .split(",")
+                            .map(tag => tag.trim())
+                            .filter(tag => tag && !tags.includes(tag));
+                            
+                          // 기존 태그와 병합
+                          setTags([...tags, ...newTags]);
+                        } catch (error) {
+                          console.error("태그 추천 중 오류:", error);
+                          setErrors({ tags: "태그 추천 중 오류가 발생했습니다." });
+                        }
+                      }}
+                    >
+                      <Sparkle className="w-3.5 h-3.5" />
+                      추천
+                    </Button>
+                  </div>
                   <div className="flex gap-2">
                     <Input
                       value={currentTag}
@@ -467,7 +500,7 @@ export default function NewSpacePage() {
                         value: "timeline",
                         icon: <Clock className="w-5 h-5" />,
                         label: "타임라인",
-                        description: "시간순 레이아웃",
+                        description: "시간 순 레이아웃",
                       },
                     ].map((layoutOption) => (
                       <motion.div
