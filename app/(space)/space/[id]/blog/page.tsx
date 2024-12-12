@@ -26,18 +26,13 @@ export default async function BlogPage({ params }: BlogPageProps) {
     (moment) => moment.status === HttpStatus.OK
   ).map((moment) => moment.data);
 
-  const glassStyle = "bg-white/10 backdrop-blur-sm";
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className={`rounded-2xl p-3 sm:p-6 ${glassStyle}`}
     >
-      <div className={`rounded-xl p-2 sm:p-4 ${glassStyle}`}>
-        <BlogMoments moments={validMoments} />
-      </div>
+      <BlogMoments moments={validMoments} />
     </motion.div>
   );
 }

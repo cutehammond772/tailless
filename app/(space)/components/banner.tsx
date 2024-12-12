@@ -24,7 +24,7 @@ export default function SpaceBanner({
     >
       {/* 배경 이미지 */}
       <motion.div
-        className="aspect-[1/1] sm:aspect-[16/9] md:aspect-[1/1] transform bg-cover bg-center transition-transform duration-500"
+        className="aspect-video transform bg-cover bg-center transition-transform duration-500"
         style={{
           backgroundImage: `url(${space.image})`,
         }}
@@ -66,7 +66,7 @@ export default function SpaceBanner({
             {/* 생성일 */}
             <motion.div className="flex items-center gap-2 sm:gap-3">
               <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-white/80" />
-              <motion.p className="text-white/90 text-xs sm:text-sm">
+              <motion.p className="text-white/90 text-xs sm:text-sm text-nowrap">
                 {formatDate(space.createdAt)}
               </motion.p>
             </motion.div>

@@ -28,23 +28,20 @@ function RelatedSpaces({ spaces }: RelatedSpacesProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
     >
-      <motion.div 
+      <motion.div
         className="flex items-center gap-3 mb-4"
         initial={{ x: -20 }}
         animate={{ x: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <motion.div
-          whileHover={{ rotate: 180 }}
-          transition={{ duration: 0.4 }}
-        >
+        <motion.div whileHover={{ rotate: 180 }} transition={{ duration: 0.4 }}>
           <Hexagon className="w-6 h-6 text-violet-500" />
         </motion.div>
         <h3 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">
-          {spaces.length}개의 연관된 Space
+          연관 Space
         </h3>
       </motion.div>
-      
+
       <Carousel
         opts={{
           align: "start",
@@ -54,7 +51,10 @@ function RelatedSpaces({ spaces }: RelatedSpacesProps) {
       >
         <CarouselContent className="-ml-4">
           {spaces.map((space, index) => (
-            <CarouselItem key={space.id} className="pl-4 basis-full lg:basis-1/2">
+            <CarouselItem
+              key={space.id}
+              className="pl-4 basis-full lg:basis-1/2"
+            >
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -94,24 +94,27 @@ export default async function MomentPage({ params }: MomentPageProps) {
   const { id } = await params;
   const [moment, spaces] = await Promise.all([
     getMoment({ id }),
-    getSpaces({})
+    getSpaces({}),
   ]);
 
   if (moment.status !== HttpStatus.OK) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-xl font-bold text-gray-600">Moment를 찾을 수 없습니다</div>
+        <div className="text-xl font-bold text-gray-600">
+          Moment를 찾을 수 없습니다
+        </div>
       </div>
     );
   }
 
-  const relatedSpaces = spaces.status === HttpStatus.OK 
-    ? spaces.data.filter(space => space.moments.includes(id))
-    : [];
+  const relatedSpaces =
+    spaces.status === HttpStatus.OK
+      ? spaces.data.filter((space) => space.moments.includes(id))
+      : [];
 
   return (
-    <motion.div 
-      className="min-h-screen p-8"
+    <motion.div
+      className="min-h-screen p-2 md:p-8"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}

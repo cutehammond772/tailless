@@ -30,7 +30,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/db/layout";
-import { generateAiText } from "@/actions/ai/text";
+import { contentRefinement } from "@/features/writing/action";
+import { titleRefinement } from "@/features/writing/action";
+import { generate } from "@/actions/ai/text";
+import { generateTags } from "@/actions/ai/tag";
 
 // Validation Schemas
 const spaceSchema = z.object({
@@ -205,9 +208,14 @@ export default function NewSpacePage() {
     try {
       setIsTitleAiRefining(true);
 
-      const refinedTitle = await generateAiText(title, "title_refinement");
+      const refinementAction = titleRefinement(title, []);
+      const response = await generate(refinementAction);
 
-      setTitle(refinedTitle);
+      if (response.status === "success") {
+        setTitle(response.text.trim());
+      } else {
+        throw new Error(response.error || "제목 다듬기에 실패했습니다.");
+      }
     } catch (error) {
       console.error("제목 다듬기 중 오류:", error);
       setErrors({ title: "제목 다듬기 중 오류가 발생했습니다." });
@@ -222,12 +230,14 @@ export default function NewSpacePage() {
     try {
       setIsDescriptionAiRefining(true);
 
-      const refinedDescription = await generateAiText(
-        description,
-        "content_refinement"
-      );
+      const refinementAction = contentRefinement(description, []);
+      const response = await generate(refinementAction);
 
-      setDescription(refinedDescription);
+      if (response.status === "success") {
+        setDescription(response.text.trim());
+      } else {
+        throw new Error(response.error || "설명 다듬기에 실패했습니다.");
+      }
     } catch (error) {
       console.error("설명 다듬기 중 오류:", error);
       setErrors({ description: "설명 다듬기 중 오류가 발생했습니다." });
@@ -405,21 +415,14 @@ export default function NewSpacePage() {
                       className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
                       onClick={async () => {
                         try {
-                          // 제목과 설명을 합쳐서 AI에 전달
                           const combinedText = `${title}\n\n${description}`;
-                          const recommendedTags = await generateAiText(
-                            combinedText,
-                            "tag_recommendation"
-                          );
-                          
-                          // 추천된 태그 문자열을 배열로 변환하고 중복 제거
-                          const newTags = recommendedTags
-                            .split(",")
-                            .map(tag => tag.trim())
-                            .filter(tag => tag && !tags.includes(tag));
-                            
-                          // 기존 태그와 병합
-                          setTags([...tags, ...newTags]);
+                          const response = await generateTags({ content: combinedText });
+
+                          if (response.status === "success") {
+                            setTags(response.tags);
+                          } else {
+                            throw new Error(response.error || "태그 추천에 실패했습니다.");
+                          }
                         } catch (error) {
                           console.error("태그 추천 중 오류:", error);
                           setErrors({ tags: "태그 추천 중 오류가 발생했습니다." });

@@ -22,8 +22,6 @@ import { HttpStatus } from "@/actions/response";
 import { authorizeUser } from "@/actions/auth";
 import { getMoment, updateMoment } from "@/actions/moment/primitives";
 import { getUser } from "@/actions/user";
-import { generateAiText } from "@/actions/ai/text";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -45,28 +43,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Space } from "@/db/space";
 import { getSpaces } from "@/actions/space/primitives";
 import { addMomentToSpace } from "@/actions/space/moment";
 import { removeMomentFromSpace } from "@/actions/space/moment";
+import { generate } from "@/actions/ai/text";
+import {
+  elaborate,
+  rewrite,
+  spellCheck,
+  titleRefinement,
+  summarize,
+  translate,
+} from "@/features/writing/action";
 
 // Schemas
-const dateSchema = z.coerce.date();
-
-const blockVersionSchema = z.object({
+const BlockVersion = z.object({
   content: z.string(),
-  timestamp: dateSchema,
+  timestamp: z.coerce.date(),
 });
 
-const blockSchema = z.object({
+const Block = z.object({
   id: z.string().uuid(),
-  versions: z.array(blockVersionSchema),
+  versions: z.array(BlockVersion),
   selectedVersion: z.number().min(0),
   type: z.literal("paragraph"),
   isProcessing: z.boolean().optional(),
@@ -74,13 +73,13 @@ const blockSchema = z.object({
   content: z.string().optional(),
 });
 
-const momentSchema = z.object({
+const Moment = z.object({
   title: z
     .string()
-    .min(5, "제목은 5자 이상이어야 합니다")
+    .min(2, "제목은 2자 이상이어야 합니다")
     .max(100, "제목은 100자 이하여야 합니다"),
   blocks: z
-    .array(blockSchema)
+    .array(Block)
     .refine(
       (blocks) =>
         blocks.some((b) => b.versions[b.selectedVersion].content.length > 0),
@@ -89,8 +88,8 @@ const momentSchema = z.object({
   spaces: z.array(z.string()).min(1, "최소 하나의 Space를 선택해야 합니다"),
 });
 
-type Block = z.infer<typeof blockSchema>;
-type BlockVersion = z.infer<typeof blockVersionSchema>;
+type Block = z.infer<typeof Block>;
+type BlockVersion = z.infer<typeof BlockVersion>;
 type Metadata = {
   id: string;
   author: string;
@@ -102,115 +101,128 @@ interface MomentEditPageProps {
   params: Promise<{ id: string }>;
 }
 
-// AI Processing Animation Component
-const ProcessingAnimation = ({ streamingText }: { streamingText?: string }) => (
+const AiProcessing = ({ streamingText }: { streamingText?: string }) => (
   <motion.div
     className="absolute inset-0 rounded-xl overflow-hidden"
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
   >
-    <motion.div
-      className="absolute inset-0"
-      animate={{
-        background: [
-          "linear-gradient(to right, rgba(147, 51, 234, 0.3), rgba(236, 72, 153, 0.3), rgba(239, 68, 68, 0.3))",
-          "linear-gradient(to right, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3), rgba(217, 70, 239, 0.3))",
-          "linear-gradient(to right, rgba(6, 182, 212, 0.3), rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3))",
-        ],
-      }}
-      transition={{
-        duration: 3,
-        repeat: Infinity,
-        repeatType: "reverse",
-      }}
-      style={{ backdropFilter: "blur(8px)" }}
-    />
-    <ProcessingContent streamingText={streamingText} />
-  </motion.div>
-);
+    <motion.div className="absolute inset-0 bg-black/40 backdrop-blur-xl" />
 
-// Processing Content Component
-const ProcessingContent = ({ streamingText }: { streamingText?: string }) => (
-  <motion.div
-    className="absolute inset-0 flex flex-col items-center justify-center p-4"
-    initial={{ scale: 0.8, opacity: 0 }}
-    animate={{ scale: 1, opacity: 1 }}
-    transition={{ duration: 0.5 }}
-  >
-    <div className="bg-white/30 backdrop-blur-xl p-4 rounded-xl shadow-xl w-full max-w-full">
-      <ProcessingHeader />
-      {streamingText && <ProcessingText text={streamingText} />}
-    </div>
-  </motion.div>
-);
+    <motion.div className="absolute inset-0 bg-gradient-to-br from-purple-600/20 via-transparent to-pink-600/20" />
 
-// Processing Header Component
-const ProcessingHeader = () => (
-  <div className="flex items-center gap-3 mb-3">
-    <motion.div
-      animate={{ rotate: 360 }}
-      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-    >
-      <Sparkle className="w-[1.25em] h-[1.25em] text-purple-600" />
+    <motion.div className="relative z-10 h-full flex items-center justify-center p-6">
+      <motion.div
+        className="max-w-lg w-full bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 shadow-2xl"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <motion.div className="p-6 border-b border-white/10">
+          <motion.div className="flex items-center gap-3">
+            <motion.div
+              animate={{
+                rotate: 360,
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            >
+              <motion.div>
+                <Sparkle className="w-6 h-6 text-purple-400" />
+              </motion.div>
+            </motion.div>
+            <motion.h3 className="text-lg font-semibold text-white">
+              AI가 글을 수정하고 있습니다
+            </motion.h3>
+          </motion.div>
+        </motion.div>
+
+        {streamingText && (
+          <motion.div
+            className="p-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <motion.div
+              className="text-white/90 leading-relaxed bg-white/5 p-4 rounded-xl border border-white/10"
+              style={{
+                textShadow: "0 2px 4px rgba(0,0,0,0.1)",
+              }}
+            >
+              {streamingText}
+            </motion.div>
+          </motion.div>
+        )}
+      </motion.div>
     </motion.div>
-    <span className="text-sm font-medium text-purple-900">
-      AI가 글을 수정하고 있습니다...
-    </span>
-  </div>
-);
-
-// Processing Text Component
-const ProcessingText = ({ text }: { text: string }) => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    className="text-sm text-gray-700 bg-white/50 p-3 rounded-lg"
-  >
-    {text}
   </motion.div>
 );
 
-// Navigation Bar Component
+interface NavigationBarProps {
+  onBack: () => void;
+  onSubmit: (e: React.FormEvent) => Promise<void>;
+  isFormDirty: boolean;
+  isLoading: boolean;
+}
+
 const NavigationBar = ({
   onBack,
   onSubmit,
   isFormDirty,
   isLoading,
-}: {
-  onBack: () => void;
-  onSubmit: (e: React.FormEvent) => Promise<void>;
-  isFormDirty: boolean;
-  isLoading: boolean;
-}) => (
+}: NavigationBarProps) => (
   <motion.div
     className="flex justify-between items-center"
     initial={{ y: -20 }}
     animate={{ y: 0 }}
     transition={{ duration: 0.6 }}
   >
-    <Button
-      variant="ghost"
+    <motion.button
+      type="button"
       onClick={onBack}
       className={cn(
         "flex items-center gap-2 px-6 py-3 rounded-full",
-        "backdrop-blur-xl bg-white/10 hover:bg-white/20"
+        "backdrop-blur-xl bg-white/10"
       )}
+      whileHover={{
+        backgroundColor: "rgba(255, 255, 255, 0.2)",
+        scale: 1.02,
+      }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.2 }}
     >
       <MdArrowBack className="w-[1.25em] h-[1.25em]" />
       돌아가기
-    </Button>
-    <Button
+    </motion.button>
+
+    <motion.button
+      type="button"
       onClick={onSubmit}
       disabled={!isFormDirty || isLoading}
       className={cn(
         "flex items-center gap-2 px-6 py-3 rounded-full",
-        "bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:bg-gray-400"
+        "bg-blue-600 text-white",
+        (!isFormDirty || isLoading) && "bg-gray-400 cursor-not-allowed"
       )}
+      whileHover={
+        !isFormDirty || isLoading
+          ? {}
+          : {
+              backgroundColor: "#2563eb", // blue-700
+              scale: 1.02,
+            }
+      }
+      whileTap={!isFormDirty || isLoading ? {} : { scale: 0.98 }}
+      transition={{ duration: 0.2 }}
     >
       <MdSave className="w-[1.25em] h-[1.25em]" />
       저장하기
-    </Button>
+    </motion.button>
   </motion.div>
 );
 
@@ -241,61 +253,129 @@ const TitleInput = ({
   validationErrors: z.ZodError | null;
   onAiRefine: () => void;
   isGenerating: boolean;
-}) => (
-  <div className="space-y-3">
-    <div className="flex items-center justify-between">
-      <Label htmlFor="title" className="text-lg font-semibold tracking-tight">
-        제목
-      </Label>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
-        onClick={onAiRefine}
-        disabled={isGenerating}
+}) => {
+  const hasError = validationErrors?.errors.some((e) => e.path[0] === "title");
+  const titleErrors = validationErrors?.errors.filter(
+    (e) => e.path[0] === "title"
+  );
+
+  return (
+    <>
+      <motion.div
+        className="flex items-center justify-between mb-4"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
       >
-        <Sparkle className="w-3.5 h-3.5" />
-        {isGenerating ? "다듬는 중..." : "다듬기"}
-      </Button>
-    </div>
-    <div className="relative">
-      <Input
-        id="title"
-        value={title}
-        onChange={onChange}
-        className={cn(
-          "text-xl font-medium p-4",
-          "bg-white/50 rounded-xl border-2",
-          "focus:bg-white/70 transition-all duration-200",
-          "hover:bg-white/60 hover:border-purple-200/50",
-          "focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400",
-          "placeholder:text-gray-400/70",
-          validationErrors?.errors.some((e) => e.path[0] === "title")
-            ? "border-red-500 focus:border-red-500 focus:ring-red-500/30"
-            : "border-transparent"
-        )}
-        placeholder="제목을 입력하세요 (5-100자)"
-      />
-      <AnimatePresence>
-        {validationErrors?.errors
-          .filter((e) => e.path[0] === "title")
-          .map((error, i) => (
-            <motion.p
-              key={i}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute mt-2 text-sm font-medium text-red-500 flex items-center gap-1"
+        <Label
+          htmlFor="title"
+          className="text-lg font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600"
+        >
+          제목
+        </Label>
+        <motion.button
+          type="button"
+          onClick={onAiRefine}
+          disabled={isGenerating}
+          className={cn(
+            "relative overflow-hidden rounded-full backdrop-blur-lg",
+            "flex items-center gap-1.5 px-3 py-1.5",
+            "text-xs font-medium text-violet-700",
+            "bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.2)]",
+            isGenerating && "cursor-not-allowed opacity-70"
+          )}
+          whileHover={!isGenerating ? { scale: 1.05 } : {}}
+          whileTap={!isGenerating ? { scale: 0.95 } : {}}
+        >
+          <motion.div
+            className="absolute inset-0"
+            animate={{
+              background: [
+                "linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.2))",
+                "linear-gradient(45deg, rgba(236, 72, 153, 0.2), rgba(139, 92, 246, 0.2))",
+              ],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              repeatType: "reverse",
+            }}
+          />
+          <motion.div className="relative flex items-center gap-1.5">
+            <motion.div
+              animate={isGenerating ? { rotate: 360 } : {}}
+              transition={{
+                duration: 2,
+                repeat: isGenerating ? Infinity : 0,
+                ease: "linear",
+              }}
             >
-              <MdWarning className="w-4 h-4" />
-              {error.message}
-            </motion.p>
+              <Sparkle className="w-3.5 h-3.5" />
+            </motion.div>
+            {isGenerating ? "다듬는 중..." : "다듬기"}
+          </motion.div>
+        </motion.button>
+      </motion.div>
+      <motion.div
+        className="relative"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+      >
+        <motion.div
+          animate={hasError ? { x: [0, -4, 4, -4, 4, 0] } : {}}
+          transition={{ duration: 0.4 }}
+        >
+          <Input
+            id="title"
+            value={title}
+            onChange={onChange}
+            className={cn(
+              "w-full text-xl font-medium p-4",
+              "bg-white/10 backdrop-blur-md rounded-xl",
+              "border border-white/20",
+              "transition-all duration-300",
+              "hover:bg-white/20",
+              "focus:bg-white/25 focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400/50",
+              "placeholder:text-white/40",
+              hasError &&
+                "border-red-500/50 focus:border-red-500/50 focus:ring-red-500/30"
+            )}
+            placeholder="제목을 입력하세요 (5-100자)"
+            style={{ textShadow: "0 2px 4px rgba(0,0,0,0.1)" }}
+          />
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+          {titleErrors?.map((error, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: -10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute mt-2 px-4 py-2 rounded-lg backdrop-blur-md"
+              style={{
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+              }}
+            >
+              <motion.p className="flex items-center gap-2 text-sm font-medium text-red-500">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 10, 0] }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  <MdWarning className="w-4 h-4" />
+                </motion.div>
+                {error.message}
+              </motion.p>
+            </motion.div>
           ))}
-      </AnimatePresence>
-    </div>
-  </div>
-);
+        </AnimatePresence>
+      </motion.div>
+    </>
+  );
+};
 
 // AI Tools Dialog Component
 const AiToolsDialog = ({
@@ -327,19 +407,36 @@ const AiToolsDialog = ({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           {tools.map(({ action, icon: Icon, label }) => (
-            <Button
+            <motion.button
+              type="button"
               key={action}
               onClick={() => {
                 onSelectTool(action);
                 onClose();
               }}
               disabled={isProcessing}
-              className="w-full justify-start gap-2 text-left"
-              variant="outline"
+              className={cn(
+                "w-full px-4 py-2 flex items-center gap-2",
+                "bg-white/10 backdrop-blur-md",
+                "border border-white/20",
+                "rounded-lg text-left",
+                "transition-colors duration-200",
+                "hover:bg-white/20",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 400,
+                damping: 25,
+              }}
             >
               <Icon className="w-4 h-4" />
               {label}
-            </Button>
+            </motion.button>
           ))}
         </div>
       </DialogContent>
@@ -410,18 +507,18 @@ const BlockActions = ({
               : "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
           )}
         >
-          <Button
+          <motion.button
             type="button"
-            variant="ghost"
-            size="sm"
             onClick={handleAiClick}
             className={cn(
               "hover:bg-white/60 rounded-full p-1.5 md:p-2",
               showAiTools && "bg-purple-100"
             )}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             <Sparkle className="w-[1em] h-[1em] md:w-[1.25em] md:h-[1.25em] text-purple-600/70 hover:text-purple-600" />
-          </Button>
+          </motion.button>
 
           <AnimatePresence>
             {!isMobile && showAiTools && (
@@ -432,63 +529,63 @@ const BlockActions = ({
                 className="flex items-center gap-1.5 md:gap-2 overflow-hidden"
               >
                 {tools.map(({ action, icon: Icon, label }) => (
-                  <Button
+                  <motion.button
                     key={action}
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="hover:bg-white/60 rounded-full px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm font-medium whitespace-nowrap"
+                    className="hover:bg-white/60 rounded-full px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm font-medium whitespace-nowrap flex items-center"
                     onClick={() => onAiAction(blockId, action)}
                     disabled={isProcessing}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <Icon className="w-[1em] h-[1em] mr-1 md:mr-1.5" />
-                    {label}
-                  </Button>
+                    <Icon className="w-[1em] h-[1em] mr-1 md:mr-1.5 inline-block" />
+                    <span className="inline-block">{label}</span>
+                  </motion.button>
                 ))}
               </motion.div>
             )}
           </AnimatePresence>
 
           {!isFirst && (
-            <Button
+            <motion.button
               type="button"
-              variant="ghost"
-              size="sm"
               onClick={() => onMoveUp(blockId)}
               className="hover:bg-white/60 rounded-full p-1.5 md:p-2"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               <MdArrowUpward className="w-[1em] h-[1em] md:w-[1.25em] md:h-[1.25em] text-gray-600/70 hover:text-gray-600" />
-            </Button>
+            </motion.button>
           )}
           {!isLast && (
-            <Button
+            <motion.button
               type="button"
-              variant="ghost"
-              size="sm"
               onClick={() => onMoveDown(blockId)}
               className="hover:bg-white/60 rounded-full p-1.5 md:p-2"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               <MdArrowDownward className="w-[1em] h-[1em] md:w-[1.25em] md:h-[1.25em] text-gray-600/70 hover:text-gray-600" />
-            </Button>
+            </motion.button>
           )}
-          <Button
+          <motion.button
             type="button"
-            variant="ghost"
-            size="sm"
             onClick={() => onAddBlock(blockId)}
             className="hover:bg-white/60 rounded-full p-1.5 md:p-2"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             <MdAdd className="w-[1em] h-[1em] md:w-[1.25em] md:h-[1.25em] text-gray-600/70 hover:text-gray-600" />
-          </Button>
-          <Button
+          </motion.button>
+          <motion.button
             type="button"
-            variant="ghost"
-            size="sm"
             onClick={() => onDeleteBlock(blockId)}
             className="hover:bg-white/60 rounded-full p-1.5 md:p-2"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             <MdDelete className="w-[1em] h-[1em] md:w-[1.25em] md:h-[1.25em] text-gray-600/70 hover:text-gray-600" />
-          </Button>
+          </motion.button>
         </motion.div>
       </motion.div>
 
@@ -514,27 +611,79 @@ const VersionSelector = ({
   onVersionSelect: (blockId: string, index: number) => void;
   blockId: string;
 }) => (
-  <div className="overflow-x-auto scrollbar scrollbar-hide whitespace-nowrap">
-    <div className="inline-flex gap-2 pb-2">
+  <motion.div
+    className="overflow-x-auto scrollbar scrollbar-hide whitespace-nowrap"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5 }}
+  >
+    <motion.div
+      className="inline-flex gap-2 pb-2 px-1"
+      initial={{ scale: 0.95 }}
+      animate={{ scale: 1 }}
+      transition={{ duration: 0.3, delay: 0.2 }}
+    >
       {versions.map((_, index) => (
-        <Button
+        <motion.div
           key={index}
-          type="button"
-          variant={selectedVersion === index ? "default" : "outline"}
-          size="sm"
-          onClick={() => onVersionSelect(blockId, index)}
-          className={cn(
-            "text-sm",
-            selectedVersion === index
-              ? "bg-purple-500 text-white"
-              : "bg-white/50"
-          )}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, delay: index * 0.1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
-          {index === 0 ? "원본" : `V${index + 1}`}
-        </Button>
+          <motion.button
+            type="button"
+            onClick={() => onVersionSelect(blockId, index)}
+            className={cn(
+              "relative text-sm px-4 py-2 rounded-xl",
+              "backdrop-blur-md transition-all duration-300",
+              "outline-none focus:outline-none",
+              selectedVersion === index
+                ? "bg-purple-500/20 text-purple-700 border border-purple-400/30"
+                : "bg-white/10 hover:bg-white/20 text-gray-700 border border-white/20",
+              "shadow-lg hover:shadow-xl"
+            )}
+            whileHover={{
+              backgroundColor:
+                selectedVersion === index
+                  ? "rgba(168, 85, 247, 0.25)"
+                  : "rgba(255, 255, 255, 0.25)",
+            }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <motion.div
+              className="absolute inset-0 rounded-xl -z-10"
+              initial={false}
+              animate={{
+                background:
+                  selectedVersion === index
+                    ? "linear-gradient(to right, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1))"
+                    : "linear-gradient(to right, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.1))",
+              }}
+              transition={{ duration: 0.3 }}
+            />
+            <motion.span
+              animate={
+                selectedVersion === index
+                  ? {
+                      textShadow: [
+                        "0 0 0px rgba(147, 51, 234, 0)",
+                        "0 0 10px rgba(147, 51, 234, 0.3)",
+                        "0 0 0px rgba(147, 51, 234, 0)",
+                      ],
+                    }
+                  : {}
+              }
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              {index === 0 ? "원본" : `V${index + 1}`}
+            </motion.span>
+          </motion.button>
+        </motion.div>
       ))}
-    </div>
-  </div>
+    </motion.div>
+  </motion.div>
 );
 
 // Metadata Badges Component
@@ -563,80 +712,36 @@ const MetadataBadges = ({
   </div>
 );
 
-// BlockContent Component 추가
+// BlockContent Component
 const BlockContent = ({
   content,
   onChange,
   onFocus,
   blockId,
-  hasMultipleVersions,
 }: {
   content: string;
   onChange: (content: string) => void;
   onFocus: () => void;
   blockId: string;
-  hasMultipleVersions: boolean;
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const commonTextStyles = cn(
-    "w-full",
-    "text-left text-base leading-relaxed",
-    "whitespace-pre-wrap break-words",
-    !content && "text-gray-400",
-    hasMultipleVersions && "p-3",
-  );
-
-  const handleButtonClick = () => {
-    setIsEditing(true);
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
-    }, 0);
-  };
-
-  const handleBlur = () => {
-    setIsEditing(false);
-  };
-
   const adjustTextareaHeight = (textarea: HTMLTextAreaElement) => {
-    textarea.style.height = "0px";
-    textarea.style.height = textarea.scrollHeight + "px";
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
   };
 
   useEffect(() => {
-    if (isEditing && textareaRef.current) {
+    if (textareaRef.current) {
       adjustTextareaHeight(textareaRef.current);
     }
-  }, [isEditing, content]);
+  }, [content]);
 
-  if (!isEditing) {
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={handleButtonClick}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            handleButtonClick();
-          }
-        }}
-        className={cn(
-          commonTextStyles,
-          "cursor-pointer",
-          "hover:bg-white/10",
-          "transition-colors duration-200",
-          "focus:outline-none",
-          "min-h-[2.5rem]",
-          hasMultipleVersions && "rounded-lg ring-inset ring-1 ring-black/10"
-        )}
-      >
-        {content || "내용을 입력하세요..."}
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (textareaRef.current) {
+      adjustTextareaHeight(textareaRef.current);
+    }
+  }, []);
 
   return (
     <motion.textarea
@@ -647,19 +752,36 @@ const BlockContent = ({
         adjustTextareaHeight(e.target);
       }}
       onFocus={onFocus}
-      onBlur={handleBlur}
       className={cn(
-        commonTextStyles,
+        "w-full p-4",
+        "text-base leading-relaxed",
         "bg-transparent",
-        "outline-none resize-none",
-        "transition-colors duration-200",
-        hasMultipleVersions ? "rounded-lg ring-inset ring-1 ring-purple-500" : "border-none focus:ring-0"
+        "resize-none outline-none",
+        "scrollbar scrollbar-hide",
+        "rounded-lg",
+        "transition-colors duration-300 ease-in-out",
+        "border-2",
+        "border-gray-500/30", // 기본 회색 테두리 추가
+        "hover:border-white/30",
+        "focus:border-purple-400/50 focus:ring-2 focus:ring-purple-500/30",
+        !content && "text-white/40"
       )}
       placeholder="내용을 입력하세요..."
       data-block-id={blockId}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2 }}
+      style={{
+        textShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        background: "rgba(255, 255, 255, 0.05)",
+        backdropFilter: "blur(10px)",
+        borderRadius: "1rem",
+        overflow: "hidden",
+      }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      whileHover={{
+        background: "rgba(255, 255, 255, 0.08)",
+        boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1)",
+      }}
     />
   );
 };
@@ -686,7 +808,6 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
   const [isFormDirty, setIsFormDirty] = useState(false);
   const [availableSpaces, setAvailableSpaces] = useState<Space[]>([]);
   const [selectedSpaces, setSelectedSpaces] = useState<Space[]>([]);
-  const [open, setOpen] = useState(false);
   const [isTitleAiRefining, setIsTitleAiRefining] = useState(false);
 
   // Handlers and Effects
@@ -767,7 +888,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
 
   const validateForm = () => {
     try {
-      momentSchema.parse({
+      Moment.parse({
         title,
         blocks,
         spaces: selectedSpaces.map((s) => s.id),
@@ -828,7 +949,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
   };
 
   const handleAddBlock = (id: string) => {
-    const newBlock = blockSchema.parse({
+    const newBlock = Block.parse({
       id: uuidv4(),
       versions: [{ content: "", timestamp: new Date(), isAiGenerated: false }],
       selectedVersion: 0,
@@ -949,19 +1070,31 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
         )
       );
 
-      const stream = await generateAiText(
-        block.versions[block.selectedVersion].content,
-        action
-      );
-      let fullText = "";
+      let actionFn;
+      switch (action) {
+        case "spellcheck":
+          actionFn = spellCheck;
+          break;
+        case "summarize":
+          actionFn = summarize;
+          break;
+        case "rewrite":
+          actionFn = rewrite;
+          break;
+        case "translate":
+          actionFn = translate;
+          break;
+        case "elaborate":
+          actionFn = elaborate;
+          break;
+      }
 
-      for await (const chunk of stream) {
-        fullText += chunk;
-        setBlocks((prev) =>
-          prev.map((b) =>
-            b.id === blockId ? { ...b, streamingText: fullText } : b
-          )
-        );
+      const response = await generate(
+        actionFn(block.versions[block.selectedVersion].content, [])
+      );
+
+      if (response.status === "error") {
+        throw new Error(response.error);
       }
 
       setBlocks((prev) =>
@@ -972,7 +1105,7 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
                 versions: [
                   ...b.versions,
                   {
-                    content: fullText,
+                    content: response.text.trim(),
                     timestamp: new Date(),
                     isAiGenerated: true,
                   },
@@ -1012,35 +1145,19 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
     }
   };
 
-  const handleSpaceSelect = (space: Space) => {
-    const newSelectedSpaces = selectedSpaces.some((s) => s.id === space.id)
-      ? selectedSpaces.filter((s) => s.id !== space.id)
-      : [...selectedSpaces, space];
-
-    setSelectedSpaces(newSelectedSpaces);
-
-    // Space 변경 시 Dirty Check
-    const originalSpaceIds = availableSpaces
-      .filter((space) => space.moments.includes(metadata.id))
-      .map((space) => space.id);
-
-    const currentSpaceIds = newSelectedSpaces.map((s) => s.id);
-    const isDirty =
-      !originalSpaceIds.every((id) => currentSpaceIds.includes(id)) ||
-      !currentSpaceIds.every((id) => originalSpaceIds.includes(id));
-
-    setIsFormDirty(isDirty);
-  };
-
   const handleTitleAiRefine = async () => {
     if (!title.trim()) return;
 
     try {
       setIsTitleAiRefining(true);
-      const refinedTitle = await generateAiText(title, "title_refinement");
+      const response = await generate(titleRefinement(title, []));
 
-      setTitle(refinedTitle);
-      setIsFormDirty(true);
+      if (response.status === "success") {
+        setTitle(response.text.trim());
+        setIsFormDirty(true);
+      } else {
+        setError(response.error);
+      }
     } catch (error) {
       console.error("제목 다듬기 중 오류:", error);
       setError("제목 다듬기 중 오류가 발생했습니다.");
@@ -1055,12 +1172,22 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
 
   return (
     <motion.div
-      className="min-h-screen p-4 md:p-8"
+      className="min-h-screen md:p-8"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      style={{
+        background:
+          "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))",
+        backdropFilter: "blur(20px)",
+      }}
     >
-      <motion.div className="max-w-4xl mx-auto space-y-8">
+      <motion.div
+        className="max-w-4xl mx-auto space-y-8"
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
         <NavigationBar
           onBack={() => router.back()}
           onSubmit={handleSubmit}
@@ -1070,170 +1197,302 @@ export default function MomentEditPage({ params }: MomentEditPageProps) {
 
         <motion.form
           className="space-y-8"
-          initial={{ y: 20 }}
-          animate={{ y: 0 }}
-          transition={{ duration: 0.6 }}
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{
+            duration: 0.8,
+            ease: "easeOut",
+          }}
         >
           <motion.div
-            className={cn(
-              "p-4 md:p-8 rounded-2xl space-y-8",
-              "backdrop-blur-xl bg-white/30"
-            )}
+            className="relative p-8 rounded-3xl overflow-hidden"
+            style={{
+              background: "rgba(255, 255, 255, 0.1)",
+              backdropFilter: "blur(40px)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              boxShadow: "0 8px 32px rgba(31, 38, 135, 0.15)",
+            }}
+            whileHover={{
+              boxShadow: "0 8px 32px rgba(31, 38, 135, 0.25)",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+            }}
+            transition={{ duration: 0.3 }}
           >
-            <TitleInput
-              title={title}
-              onChange={handleTitleChange}
-              validationErrors={validationErrors}
-              onAiRefine={handleTitleAiRefine}
-              isGenerating={isTitleAiRefining}
+            <motion.div
+              className="absolute inset-0 -z-10"
+              initial={false}
+              animate={{
+                background: [
+                  "linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))",
+                  "linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.1))",
+                ],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
             />
 
-            <motion.div className="space-y-2">
-              <Label className="text-lg font-semibold">Space 관리</Label>
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-between bg-white/50 hover:bg-white/60",
-                      validationErrors?.errors.some(
-                        (e) => e.path[0] === "spaces"
-                      ) &&
-                        "border-red-500 focus:border-red-500 focus:ring-red-500/30"
-                    )}
-                  >
-                    {selectedSpaces.length > 0
-                      ? `${selectedSpaces.length}개의 Space에 포함됨`
-                      : "Space 선택하기"}
-                    <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0">
-                  <div className="max-h-[300px] overflow-y-auto">
-                    <div className="grid divide-y divide-gray-100">
-                      {availableSpaces.map((space) => (
-                        <div
-                          key={space.id}
-                          className={cn(
-                            "flex items-center px-4 py-3 cursor-pointer transition-all",
-                            "hover:bg-gray-50/80",
-                            selectedSpaces.some((s) => s.id === space.id) &&
-                              "bg-purple-50/80"
-                          )}
-                          onClick={() => handleSpaceSelect(space)}
-                        >
-                          <Checkbox
-                            checked={selectedSpaces.some(
-                              (s) => s.id === space.id
-                            )}
-                            className="mr-3 h-5 w-5"
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium">{space.title}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              {validationErrors?.errors
-                .filter((e) => e.path[0] === "spaces")
-                .map((error, i) => (
-                  <motion.p
-                    key={i}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="text-sm text-red-500 flex items-center gap-1"
-                  >
-                    <MdWarning className="w-4 h-4" />
-                    {error.message}
-                  </motion.p>
-                ))}
-              {selectedSpaces.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {selectedSpaces.map((space) => (
-                    <Badge
-                      key={space.id}
-                      variant="secondary"
-                      className="flex items-center gap-1"
+            <motion.div className="space-y-8">
+              <TitleInput
+                title={title}
+                onChange={handleTitleChange}
+                validationErrors={validationErrors}
+                onAiRefine={handleTitleAiRefine}
+                isGenerating={isTitleAiRefining}
+              />
+
+              <SpaceManager
+                availableSpaces={availableSpaces}
+                selectedSpaces={selectedSpaces}
+                setSelectedSpaces={setSelectedSpaces}
+                setIsFormDirty={setIsFormDirty}
+                metadata={metadata}
+                validationErrors={validationErrors}
+              />
+
+              <motion.div
+                className="space-y-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <Label className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+                  내용
+                </Label>
+                <div className="space-y-4">
+                  {blocks.map((block) => (
+                    <motion.div
+                      key={block.id}
+                      className={cn(
+                        "group relative rounded-xl w-full",
+                        "transition-all duration-300",
+                        "border border-white/10",
+                        block.versions.length > 1 && "bg-purple-50/5",
+                        focusedBlockId === block.id && "bg-white/5"
+                      )}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                        borderColor: "rgba(255, 255, 255, 0.2)",
+                      }}
                     >
-                      {space.title}
-                    </Badge>
+                      {block.versions.length > 1 && (
+                        <VersionSelector
+                          versions={block.versions}
+                          selectedVersion={block.selectedVersion}
+                          onVersionSelect={handleVersionSelect}
+                          blockId={block.id}
+                        />
+                      )}
+                      <div className="flex items-start gap-4 w-full">
+                        <div className="flex-grow relative">
+                          <BlockContent
+                            content={
+                              block.versions[block.selectedVersion].content
+                            }
+                            onChange={(content) =>
+                              handleBlockChange(block.id, content)
+                            }
+                            onFocus={() => setFocusedBlockId(block.id)}
+                            blockId={block.id}
+                          />
+                          <AnimatePresence>
+                            {block.isProcessing && (
+                              <AiProcessing
+                                streamingText={block.streamingText}
+                              />
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                      <BlockActions
+                        onAddBlock={handleAddBlock}
+                        onDeleteBlock={handleDeleteBlock}
+                        onAiAction={handleAiAction}
+                        onMoveUp={handleMoveUp}
+                        onMoveDown={handleMoveDown}
+                        blockId={block.id}
+                        isProcessing={block.isProcessing || false}
+                        isFirst={block.id === blocks[0].id}
+                        isLast={block.id === blocks[blocks.length - 1].id}
+                        isFocused={focusedBlockId === block.id}
+                      />
+                    </motion.div>
                   ))}
                 </div>
-              )}
+                {validationErrors?.errors
+                  .filter((e) => e.path[0] === "blocks")
+                  .map((error, i) => (
+                    <motion.p
+                      key={i}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-sm text-red-500 flex items-center gap-1"
+                    >
+                      <MdWarning className="w-4 h-4" />
+                      {error.message}
+                    </motion.p>
+                  ))}
+              </motion.div>
+              <MetadataBadges authorInfo={authorInfo} metadata={metadata} />
             </motion.div>
-
-            <div className="space-y-3">
-              <Label className="text-lg font-semibold">내용</Label>
-              <div className="space-y-4">
-                {blocks.map((block, index) => (
-                  <motion.div
-                    key={block.id}
-                    className={cn(
-                      "group relative rounded-xl w-full",
-                      "hover:bg-white/5 transition-all duration-200",
-                      "border-0",
-                      block.versions.length > 1 && "bg-purple-50/10",
-                      focusedBlockId === block.id && "bg-white/10"
-                    )}
-                  >
-                    {block.versions.length > 1 && (
-                      <VersionSelector
-                        versions={block.versions}
-                        selectedVersion={block.selectedVersion}
-                        onVersionSelect={handleVersionSelect}
-                        blockId={block.id}
-                      />
-                    )}
-                    <div className="flex items-start gap-4 w-full">
-                      <div className="flex-grow relative">
-                        <BlockContent
-                          content={block.versions[block.selectedVersion].content}
-                          onChange={(content) => handleBlockChange(block.id, content)}
-                          onFocus={() => setFocusedBlockId(block.id)}
-                          blockId={block.id}
-                          hasMultipleVersions={block.versions.length > 1}
-                        />
-                        <AnimatePresence>
-                          {block.isProcessing && (
-                            <ProcessingAnimation
-                              streamingText={block.streamingText}
-                            />
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                    <BlockActions
-                      onAddBlock={handleAddBlock}
-                      onDeleteBlock={handleDeleteBlock}
-                      onAiAction={handleAiAction}
-                      onMoveUp={handleMoveUp}
-                      onMoveDown={handleMoveDown}
-                      blockId={block.id}
-                      isProcessing={block.isProcessing || false}
-                      isFirst={index === 0}
-                      isLast={index === blocks.length - 1}
-                      isFocused={focusedBlockId === block.id}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-              {validationErrors?.errors
-                .filter((e) => e.path[0] === "blocks")
-                .map((error, i) => (
-                  <p key={i} className="text-sm text-red-500">
-                    {error.message}
-                  </p>
-                ))}
-            </div>
-
-            <MetadataBadges authorInfo={authorInfo} metadata={metadata} />
           </motion.div>
         </motion.form>
       </motion.div>
+    </motion.div>
+  );
+}
+
+function SpaceManager({
+  availableSpaces,
+  selectedSpaces,
+  setSelectedSpaces,
+  setIsFormDirty,
+  metadata,
+  validationErrors,
+}: {
+  availableSpaces: Space[];
+  selectedSpaces: Space[];
+  setSelectedSpaces: (spaces: Space[]) => void;
+  setIsFormDirty: (isDirty: boolean) => void;
+  metadata: Metadata;
+  validationErrors: z.ZodError | null;
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleSpaceSelect = (space: Space) => {
+    const newSelectedSpaces = selectedSpaces.some((s) => s.id === space.id)
+      ? selectedSpaces.filter((s) => s.id !== space.id)
+      : [...selectedSpaces, space];
+
+    setSelectedSpaces(newSelectedSpaces);
+
+    const originalSpaceIds = availableSpaces
+      .filter((space) => space.moments.includes(metadata.id))
+      .map((space) => space.id);
+
+    const currentSpaceIds = newSelectedSpaces.map((s) => s.id);
+    const isDirty =
+      !originalSpaceIds.every((id) => currentSpaceIds.includes(id)) ||
+      !currentSpaceIds.every((id) => originalSpaceIds.includes(id));
+
+    setIsFormDirty(isDirty);
+  };
+
+  const filteredSpaces = availableSpaces.filter((space) =>
+    space.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <motion.div
+      className="space-y-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+    >
+      <Label className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+        Space 관리
+      </Label>
+
+      {selectedSpaces.length > 0 && (
+        <motion.div
+          className="flex items-center gap-2 p-2 rounded-lg bg-white/5 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <motion.span className="text-xs text-black/60 text-nowrap">
+            선택됨:
+          </motion.span>
+          <motion.div className="flex flex-wrap gap-1">
+            {selectedSpaces.map((space) => (
+              <Badge
+                key={space.id}
+                variant="secondary"
+                className="text-xs bg-purple-500/20"
+              >
+                {space.title}
+              </Badge>
+            ))}
+          </motion.div>
+        </motion.div>
+      )}
+
+      <Input
+        type="search"
+        placeholder="Space 검색..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="mb-2"
+      />
+
+      <motion.div
+        className="h-48 overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-purple-500/50 scrollbar-track-white/5"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        <motion.div className="py-1">
+          {filteredSpaces.map((space) => (
+            <motion.div
+              key={space.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 100,
+                damping: 15,
+              }}
+              onClick={() => handleSpaceSelect(space)}
+              className={cn(
+                "relative cursor-pointer p-3 mb-2",
+                "rounded-xl",
+                "backdrop-blur-md",
+                selectedSpaces.some((s) => s.id === space.id)
+                  ? "bg-purple-100/90 shadow-lg shadow-purple-500/10"
+                  : "bg-white/80 hover:bg-white/90",
+                "border border-purple-200",
+                "transition-all duration-200 ease-in-out"
+              )}
+            >
+              <motion.div className="flex justify-between items-center">
+                <motion.div className="flex items-center gap-3">
+                  <motion.div
+                    className={
+                      selectedSpaces.some((s) => s.id === space.id)
+                        ? "text-purple-600"
+                        : "text-purple-400"
+                    }
+                  >
+                    <Check className="w-4 h-4" />
+                  </motion.div>
+                  <motion.span className="text-sm font-medium text-gray-800">
+                    {space.title}
+                  </motion.span>
+                </motion.div>
+                <motion.span className="text-xs px-2 py-1 rounded-full bg-purple-50 text-purple-600">
+                  {space.moments.length}개
+                </motion.span>
+              </motion.div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </motion.div>
+
+      {validationErrors?.errors
+        .filter((e) => e.path[0] === "spaces")
+        .map((error, i) => (
+          <motion.p
+            key={i}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-sm text-red-500 flex items-center gap-1"
+          >
+            <MdWarning className="w-4 h-4" />
+            {error.message}
+          </motion.p>
+        ))}
     </motion.div>
   );
 }
