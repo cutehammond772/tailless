@@ -30,7 +30,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Layout } from "@/db/layout";
-import { generateAiText } from "@/actions/ai/text";
+import { contentRefinement, titleRefinement } from "@/features/writing/action";
+import { generate } from "@/actions/ai/text";
 
 // Validation Schema
 const spaceSchema = z.object({
@@ -276,18 +277,19 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
 
   const handleTitleAiRefine = async () => {
     if (!title.trim()) return;
-    
+
     try {
       setIsTitleAiRefining(true);
-      
-      const refinedTitle = await generateAiText(
-        title,
-        "title_refinement"
-      );
-      
-      setTitle(refinedTitle);
-      setIsFormDirty(true);
-      
+
+      const refinementAction = titleRefinement(title, []);
+      const response = await generate(refinementAction);
+
+      if (response.status === "success") {
+        setTitle(response.text.trim());
+        setIsFormDirty(true);
+      } else {
+        throw new Error(response.error || "제목 다듬기에 실패했습니다.");
+      }
     } catch (error) {
       console.error("제목 다듬기 중 오류:", error);
       setError("제목 다듬기 중 오류가 발생했습니다.");
@@ -298,18 +300,19 @@ export default function SpaceEditPage({ params }: SpaceEditPageProps) {
 
   const handleDescriptionAiRefine = async () => {
     if (!description.trim()) return;
-    
+
     try {
       setIsDescriptionAiRefining(true);
-      
-      const refinedDescription = await generateAiText(
-        description,
-        "content_refinement"
-      );
-      
-      setDescription(refinedDescription);
-      setIsFormDirty(true);
-      
+
+      const refinementAction = contentRefinement(description, []);
+      const response = await generate(refinementAction);
+
+      if (response.status === "success") {
+        setDescription(response.text.trim());
+        setIsFormDirty(true);
+      } else {
+        throw new Error(response.error || "설명 다듬기에 실패했습니다.");
+      }
     } catch (error) {
       console.error("설명 다듬기 중 오류:", error);
       setError("설명 다듬기 중 오류가 발생했습니다.");

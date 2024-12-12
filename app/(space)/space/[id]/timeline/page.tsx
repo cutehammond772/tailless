@@ -33,11 +33,9 @@ export default async function TimelinePage({ params }: TimelinePageProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className={`rounded-2xl p-3 sm:p-6 ${glassStyle}`}
+      className={`rounded-2xl p-2 sm:p-4 ${glassStyle}`}
     >
-      <div className={`rounded-xl p-2 sm:p-4 ${glassStyle}`}>
-        <MomentTimeline moments={validMoments} />
-      </div>
+      <MomentTimeline moments={validMoments} />
     </motion.div>
   );
 }

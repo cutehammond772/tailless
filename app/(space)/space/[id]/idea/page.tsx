@@ -22,22 +22,17 @@ export default async function IdeaPage({ params }: IdeaPageProps) {
     space.data.moments.map((id) => getMoment({ id }))
   );
 
-  const validMoments = moments.filter(
-    (moment) => moment.status === HttpStatus.OK
-  ).map((moment) => moment.data);
-
-  const glassStyle = "bg-white/10 backdrop-blur-sm";
+  const validMoments = moments
+    .filter((moment) => moment.status === HttpStatus.OK)
+    .map((moment) => moment.data);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className={`rounded-2xl p-3 sm:p-6 ${glassStyle}`}
     >
-      <div className={`rounded-xl p-2 sm:p-4 ${glassStyle}`}>
-        <IdeaMoments moments={validMoments} />
-      </div>
+      <IdeaMoments moments={validMoments} />
     </motion.div>
   );
 }

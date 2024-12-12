@@ -13,7 +13,8 @@ import { HttpStatus } from "@/actions/response";
 import { createMoment } from "@/actions/moment/primitives";
 import { getSpaces } from "@/actions/space/primitives";
 import { addMomentToSpace } from "@/actions/space/moment";
-import { AiAction, generateAiText } from "@/actions/ai/text";
+import { generate } from "@/actions/ai/text";
+import { titleRefinement, contentRefinement } from "@/features/writing/action";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -216,19 +217,20 @@ export default function NewMomentPage() {
     return <ErrorAlert message="로그인이 필요한 서비스입니다." />;
   }
 
-  const handleAiGenerate = async (target: AiAction) => {
+  const handleAiGenerate = async (target: "title" | "content") => {
     setIsGenerating(true);
     try {
-      const response = await generateAiText(
-        target === "title_refinement" ? title : content,
-        target
-      );
+      const action = target === "title" 
+        ? titleRefinement(title, [])
+        : contentRefinement(content, []);
+        
+      const response = await generate(action);
 
-      if (response) {
-        if (target === "title_refinement") {
-          setTitle(response);
+      if (response.status === "success") {
+        if (target === "title") {
+          setTitle(response.text.trim());
         } else {
-          setContent(response);
+          setContent(response.text.trim());
         }
       }
     } catch (error) {
@@ -365,7 +367,7 @@ export default function NewMomentPage() {
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
-                      onClick={() => handleAiGenerate("title_refinement")}
+                      onClick={() => handleAiGenerate("title")}
                       disabled={isGenerating}
                     >
                       <Sparkle className="w-3.5 h-3.5" />
@@ -397,7 +399,7 @@ export default function NewMomentPage() {
                       variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full hover:bg-violet-50 border-violet-200 text-violet-600 hover:text-violet-700 transition-colors duration-200"
-                      onClick={() => handleAiGenerate("content_refinement")}
+                      onClick={() => handleAiGenerate("content")}
                       disabled={isGenerating}
                     >
                       <Sparkle className="w-3.5 h-3.5" />
